@@ -24,7 +24,7 @@ lut_size = 128                                      # Create 3D LUT of dimension
 
 ref_margins = (0.15, 0.1)                           # Safety margins for reference gray images (x, y)
 
-color_spaces = ('sRGB', 'Adobe', 'ProPhoto', 'ACES')    # Supported color spaces
+color_spaces = ('sRGB', 'Adobe', 'ProPhoto')    # Supported color spaces
 bit_depths = (8, 16)                                # Supported bit depths
 reference_types = ('colorchecker', 'it87')              # Supported reference types
 
