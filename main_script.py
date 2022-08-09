@@ -163,7 +163,7 @@ def main():
         start_time = time.perf_counter()
 
         # Get reference gray image
-        gray_img = image_utilities.read_image('calib_' + focus_height + '_gray' + '.' + settings.input_extension,
+        gray_img = image_utilities.read_image('calib-gray_' + focus_height + '.' + settings.input_extension,
                                               r'Calibration\Calibration Images')
 
         if gray_img is None:

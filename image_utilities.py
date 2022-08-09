@@ -736,7 +736,7 @@ def get_roi(in_img, mode=0, in_roi=(0, 0, 0, 0), show_format=False):
 
             roi = (ref_points[0][0], ref_points[0][1],
                    abs(ref_points[1][0] - ref_points[0][0]), abs(ref_points[1][1] - ref_points[0][1]))
-            roi = tuple(round(coord / img_scale) for coord in roi)
+            roi = tuple(round(coord) for coord in roi)
             out_roi = roi
 
     # Default to full image
