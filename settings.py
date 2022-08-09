@@ -3,9 +3,11 @@ import multiprocessing
 
 max_window = [1400, 800]        # width, height (px), window size limits
 selection_zoom = 8              # Zoom ratio for selecting sample reference points
+use_colored_printing = False    # Set to True if terminal used supports colored printing
 
 prompt_focus_height = False     # Ask user to input focus height?
 check_capture_settings = False  # Check if images match calibration capture settings?
+gray_warning_limit = 1.0        # ref. gray min. dE for warning
 
 input_extension = 'tif'         # Input file extension
 

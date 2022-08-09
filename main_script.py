@@ -111,7 +111,7 @@ def main():
                 measurement_gray = measurement_gray[int(file_names[i].split('.')[0].split('_')[1])]
                 ref_diff = np.subtract(profile_data[1], measurement_gray)
                 ref_ciede = colour.delta_E(profile_data[1], measurement_gray, method='CIE 2000').round(2)
-                if ref_ciede > 1.5:
+                if ref_ciede >= settings.gray_warning_limit:
                     utilities.print_color(f"Warning: Ref. gray dE is {ref_ciede}!", 'warning')
                 else:
                     utilities.print_color(f"Ref. gray dE OK, {ref_ciede}.", 'green')

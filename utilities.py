@@ -17,7 +17,7 @@ plt.rcParams["figure.dpi"] = 200
 def create_directories(main_dir):
     folders = (r'..\Images', r'Calibration\Image Uniformity', r'Calibration\Correction Profiles',
                r'Calibration\Spectra', r'Calibration\Calibration Images', r'Calibration\Reference Values',
-               'Corrected Images', 'Exported Images', 'Remote Capture')
+               'Corrected Images', 'Exported Images', 'Remote Capture', 'Imaging Edge')
     for folder in folders:
         path = os.path.join(main_dir, folder)
         if not os.path.exists(path):
@@ -26,7 +26,10 @@ def create_directories(main_dir):
 
 # Colored print to console
 def print_color(in_str, in_col):
-    print(settings.print_colors[in_col] + in_str + settings.print_colors['end'])
+    if settings.use_colored_printing:
+        print(settings.print_colors[in_col] + in_str + settings.print_colors['end'])
+    else:
+        print(in_str)
 
 
 # Write data to .csv file
