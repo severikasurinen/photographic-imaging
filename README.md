@@ -1,5 +1,5 @@
 # photographic-imaging
-!THESIS WILL BE LINKED IN THE NEAR FUTURE!
+NOTE: THESIS WILL BE LINKED IN THE NEAR FUTURE
 
 Calibration scripts made as part of my B.Sc. thesis "Photographic imaging of solar cells". Currently only verified support for Windows, but should also support other platforms with minor adjustments.
 
