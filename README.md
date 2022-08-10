@@ -28,8 +28,5 @@ pip install PyExifTool
 ```
 
 # Using the scripts
-Run the program by opening PowerShell or Command Prompt in the Python folder and running the command 
-```powershell
-python main_script.py
-```
-Select the desired script mode and follow the instructions in photographic-imaging.pdf. The instructions have been designed specifically for the original system, but can be adjusted to fit another similar system by applying the findings of the linked thesis.
+-Run the program by starting run.bat.
+-Select the desired script mode and follow the instructions in photographic-imaging.pdf. The instructions have been designed specifically for the original system, but can be adjusted to fit another similar system by applying the findings of the linked thesis.
