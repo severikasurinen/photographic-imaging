@@ -4,7 +4,7 @@ NOTE: THESIS WILL BE LINKED IN THE NEAR FUTURE
 Calibration scripts made as part of my B.Sc. thesis "Photographic imaging of solar cells". Currently only verified support for Windows, but should also support other platforms with minor adjustments.
 
 # Installation
-- Copy script files into a "Python" folder under a main imaging directory. Running main_script.py will automatically generate the rest of the required file structure.
+- Copy script files into a "Python" folder under a main imaging directory. Running the program will automatically generate the rest of the required file structure.
 - Download the ExifTool Windows Executable from https://exiftool.org/ and extract the exiftool.exe file into the Python folder.
 - Create the folder "ICC Profiles" inside the Python folder and download at least the following profiles (and rename to match the name) into the folder.
   - sRGB.icc (https://www.color.org/srgbprofiles.xalter -> sRGB_v4_ICC_preference.icc)

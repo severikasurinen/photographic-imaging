@@ -110,7 +110,7 @@ def color_calibration(in_img, ref_data, show_img=False):
             edges.append(np.linspace(plot_domain[0][o], plot_domain[1][o],
                                      round((plot_domain[1][o] - plot_domain[0][o]) / step_size)))
 
-        lab_i = np.meshgrid(edges[0], edges[1], edges[2])
+        lab_i = np.array(np.meshgrid(edges[0], edges[1], edges[2]))
         lab_i = np.array((lab_i[0].flatten(), lab_i[1].flatten(), lab_i[2].flatten()))
         res_i = correction_lut.apply(lab_i.T)
 

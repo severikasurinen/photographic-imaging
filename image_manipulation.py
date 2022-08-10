@@ -1,6 +1,4 @@
 # TODO: Comments
-import time
-
 import settings
 import utilities
 import image_utilities
@@ -64,7 +62,8 @@ def convert_color(in_cols, conversion, is_thread=False, operations=1):
                         main_script.color_model[settings.output_color_space].whitepoint,
                         main_script.color_model[settings.output_color_space].matrix_XYZ_to_RGB))
 
-                    bgr_vals = (np.interp(np.flip(rgb_vals, -1), (0, 1), (0, main_script.max_val[settings.output_depth]))
+                    bgr_vals = (np.interp(np.flip(rgb_vals, -1),
+                                          (0, 1), (0, main_script.max_val[settings.output_depth]))
                                 .astype(main_script.bit_type[settings.output_depth]))
 
                     out_cols.append(bgr_vals)
@@ -200,12 +199,18 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
             start_points = ref_crop_data[1][1]
 
         ref_point_list = []
-        img_refs = []
         gray_refs = None
     else:
         ref_point_list = []
         gray_refs = {}
+        ref_crop_data = None
+        img = None
+        img_scale = None
+        start_points = None
+        start_file = None
+        ref_crop = None
 
+    img_refs = []
     write_dict = {}
     for i in range(len(file_names)):
         if len(file_names[i].split('.')) == 1:

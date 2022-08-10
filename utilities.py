@@ -69,13 +69,13 @@ def read_csv(in_name, sub_path):
             for i in range(len(raw_cells)):
                 cells.append([])
                 for o in range(len(raw_cells[i])):
-                    raw_cells[i][o] = raw_cells[i][o].strip()
-                    if raw_cells[i][o] != '':
+                    val = raw_cells[i][o].strip()
+                    if val != '':
                         try:
-                            raw_cells[i][o] = float(raw_cells[i][o])
-                        except:
+                            val = float(val)
+                        except ValueError:
                             pass
-                        cells[i].append(raw_cells[i][o])
+                        cells[i].append(val)
                 if len(cells[i]) == 1:
                     cells[i] = cells[i][0]
 

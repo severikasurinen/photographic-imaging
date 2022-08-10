@@ -267,16 +267,17 @@ def read_profile(in_height):  # input height as string
                 p_dist = int(str.split(p, '.')[0])
                 if abs(p_dist - calib_dist) < closest[0]:
                     closest = (abs(p_dist - calib_dist), p_dist)
-            except:
+            except ValueError:
                 pass
         in_height = str(closest[1])
-    except:
+    except ValueError:
         pass
     try:
         out_lut = colour.read_LUT(os.path.join(settings.main_directory, r'Calibration\Correction Profiles',
                                                in_height + '.cube'))
         print(f"Read correction profile '{in_height}'.")
-    except:
+    except BaseException as error:
+        utilities.print_color(f"An exception occurred: {error}", 'error')
         return None
 
     # Read profile reference gray LAB
@@ -356,7 +357,8 @@ def read_crop(in_name, ref_gray=False):
 
     try:
         root = ElementTree.parse(rf"{crop_path}\{in_name.split('_')[0]}.xml").getroot()
-    except:
+    except BaseException as error:
+        utilities.print_color(f"An exception occurred: {error}", 'error')
         return None
 
     if ref_gray:
@@ -385,7 +387,8 @@ def read_reference(ref_name):
                                               ref_name + '.xml')
                                  ).getroot()
         print(f"Read reference '{ref_name}' values.")
-    except:
+    except BaseException as error:
+        utilities.print_color(f"An exception occurred: {error}", 'error')
         return None
 
     ref_illuminant = root.find('illuminant').text
@@ -417,7 +420,7 @@ def measure_series(path, ref_name, mode, measurement_name):
     ref_img = read_image(ref_name + '.' + settings.output_extension, os.path.join(settings.main_directory, path))
     file_names = os.listdir(os.path.join(settings.main_directory, path))
     for file_name in file_names:
-        if len(file_name.split('.')) <= 1 or file_name.split('.')[1] != settings.output_extension:
+        if len(str(file_name).split('.')) <= 1 or str(file_name).split('.')[1] != settings.output_extension:
             file_names.remove(file_name)
     file_names = natsort.natsorted(file_names)
 
@@ -435,7 +438,6 @@ def measure_series(path, ref_name, mode, measurement_name):
         x = []
         y = []
 
-        res_cols = {}
         est_data = [time.perf_counter(), 0]
         for i in range(len(file_names)):
 
@@ -483,8 +485,8 @@ def measure_series(path, ref_name, mode, measurement_name):
             px_scale = input("Pixel scale (µm/px): ")
             try:
                 px_scale = float(px_scale.strip())
-            except:
-                px_scale = None
+            except ValueError:
+                pass
 
             if px_scale is not None:
                 break
