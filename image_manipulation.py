@@ -296,7 +296,8 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
 
         if ref_gray:
             gray_refs[file_names[i].split('.')[0].split('_')[1]] = tuple(elem for elem in
-                                                                         image_utilities.get_average_color(img_c))
+                                                                         image_utilities
+                                                                         .get_average_color(convert_color(img_c, 'in')))
 
     if len(write_dict) > 0:
         image_utilities.write_crop(ref_point_list, ref_crop[0], ref_crop[1], gray_refs)
