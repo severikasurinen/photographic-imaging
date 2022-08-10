@@ -39,7 +39,7 @@ exif_data = ('EXIF:XResolution', 'EXIF:YResolution', 'EXIF:ResolutionUnit', 'EXI
 
 main_directory = r'..\Images'                   # Main directory for images
 
-system_memory = 15625000                        # Bytes of system memory to utilize
+system_memory = 16000000                        # Bytes of system memory to utilize
 cpu_threads = multiprocessing.cpu_count() - 1   # Number of threads to utilize, 0 for no parallel processing
 
 # Window prompts

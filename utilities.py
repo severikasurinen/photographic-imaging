@@ -59,6 +59,9 @@ def read_csv(in_name, sub_path):
     with open(os.path.join(csv_path, in_name + '.csv'), 'r', encoding='UTF8', newline='') as f:
 
         for row in csv.reader(f, delimiter=','):
+            if headers is None:
+                headers = row
+                continue
             raw_cells = []
             for cell in row:
                 raw_cells.append(cell.split(' '))
@@ -73,13 +76,12 @@ def read_csv(in_name, sub_path):
                         except:
                             pass
                         cells[i].append(raw_cells[i][o])
+                if len(cells[i]) == 1:
+                    cells[i] = cells[i][0]
 
             if len(cells) == 1:
                 cells = cells[0]
-            if headers is None:
-                headers = cells
-            else:
-                out_data.append(cells)
+            out_data.append(cells)
 
     return headers, out_data
 

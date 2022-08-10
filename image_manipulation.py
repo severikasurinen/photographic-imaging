@@ -1,4 +1,6 @@
 # TODO: Comments
+import time
+
 import settings
 import utilities
 import image_utilities
@@ -111,7 +113,6 @@ def convert_color(in_cols, conversion, is_thread=False, operations=1):
     else:
         out_cols = image_utilities.parallel_process(convert_color, in_cols,
                                                     (conversion, True, settings.cpu_threads))
-
         return out_cols
 
 
