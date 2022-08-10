@@ -174,26 +174,27 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
             start_file = file_names[0]
             img = None
             while img is None:  # Wait for successful read
-                img = image_utilities.read_image(start_file, os.path.join(settings.main_directory, path))
+                img = image_utilities.read_image(start_file, os.path.join(settings.main_directory, path), convert=False)
             if adjust and ref_crop_data is not None and crop_exists:
-                ref_crop = match_crop(img, 0, (ref_crop_data[2], ref_crop_data[3]))  # Start with previous crop data
+                # Start with previous crop data
+                ref_crop = match_crop(img, 0, (ref_crop_data[2], ref_crop_data[3]), convert=False)
             else:
-                ref_crop = match_crop(img, 0)
+                ref_crop = match_crop(img, 0, convert=False)
             if ref_crop is None:
                 utilities.print_color("Discarding crop data.", 'warning')
                 return
 
             if adjust and ref_crop_data is not None and crop_exists:
-                start_points = match_crop(img, 1, ref_crop_data[1][1])  # Start with previous crop data
+                start_points = match_crop(img, 1, ref_crop_data[1][1], convert=False)  # Start with previous crop data
             else:
-                start_points = match_crop(img, 1)
+                start_points = match_crop(img, 1, convert=False)
             if start_points is None:
                 utilities.print_color("Discarding crop data.", 'warning')
                 return
             img_scale = scale_image(img)[1]
         else:
             start_file = ref_crop_data[1][0] + '.' + settings.output_extension
-            img = image_utilities.read_image(start_file, os.path.join(settings.main_directory, path))
+            img = image_utilities.read_image(start_file, os.path.join(settings.main_directory, path), convert=False)
             img_scale = scale_image(img)[1]
             ref_crop = (ref_crop_data[2], ref_crop_data[3])
             start_points = ref_crop_data[1][1]
@@ -229,7 +230,9 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
         if not ref_gray:
             if len(img_refs) == 0:
                 for o in range(2):
-                    img_ref = zoom_image(convert_color(img, 'show'),
+                    img_ref = zoom_image((np.interp(img[0],
+                                                    (0, main_script.max_val[img[1][0][1]]), (0, main_script.max_val[0])
+                                                    ).astype(main_script.bit_type[0]), img[1]),
                                          zoom_point=image_utilities.cvt_point(start_points[o], -1, img[0].shape))
                     cv.drawMarker(img_ref[0],
                                   image_utilities.cvt_point(start_points[o], -1, img_ref[0].shape),
@@ -241,12 +244,13 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
                                            False)
 
             if file_names[i] != start_file:
-                img = image_utilities.read_image(file_names[i], os.path.join(settings.main_directory, path))
+                img = image_utilities.read_image(file_names[i], os.path.join(settings.main_directory, path),
+                                                 convert=False)
 
                 if data_exists:
-                    ref_points = match_crop(img, 1, ref_crop_data[0][file_names[i].split('.')[0]])
+                    ref_points = match_crop(img, 1, ref_crop_data[0][file_names[i].split('.')[0]], convert=False)
                 else:
-                    ref_points = match_crop(img, 1)
+                    ref_points = match_crop(img, 1, convert=False)
             else:
                 ref_points = start_points
 
@@ -279,9 +283,9 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
             if len(ref_point_list) == 0:
                 ref_point_list.append([file_names[i].split('.')[0]])
 
-            img = image_utilities.read_image(file_names[i], os.path.join(settings.main_directory, path))
+            img = image_utilities.read_image(file_names[i], os.path.join(settings.main_directory, path), convert=False)
 
-            ref_crop = match_crop(img, 0)
+            ref_crop = match_crop(img, 0, convert=False)
             img_c = rotate_image(img, ref_crop[0])
 
         crop_corner = (image_utilities.cvt_point(ref_crop[1][0], -1, img_c[0].shape),
@@ -299,7 +303,7 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
         print("Writing cropped images ...")
         for key in write_dict:
             image_utilities.write_image(write_dict[key], key.split('.')[0], rf'{path}\Cropped',
-                                        '_cropped.' + settings.output_extension)
+                                        '_cropped.' + settings.output_extension, convert=False)
     else:
         print("No new data written.")
 
@@ -307,8 +311,12 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
 
 
 # Mode 0: Crop first image, 1: Match crop
-def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0)))):
-    in_img = convert_color(in_img, 'show')
+def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), convert=True):
+    if convert:
+        in_img = convert_color(in_img, 'show')
+    else:
+        in_img = (np.interp(in_img[0], (0, main_script.max_val[in_img[1][0][1]]), (0, main_script.max_val[0])
+                            ).astype(main_script.bit_type[0]), in_img[1])
     if mode == 0:
         img_c, img_scale = scale_image(in_img)
         if ref_points[0] != ((0, 0), (0, 0)):

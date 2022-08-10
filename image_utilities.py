@@ -147,19 +147,17 @@ def write_image(in_img, img_name, sub_folder, extension='.' + settings.output_ex
     if convert:
         if show_format:
             conversion = 'show'
+            output_color_space = 0
         else:
             conversion = 'out'
+            output_color_space = settings.output_color_space
         out_img = image_manipulation.convert_color(in_img, conversion)
     else:
         out_img = in_img
+        output_color_space = out_img[1][0][0]
 
     cv.imwrite(os.path.join(img_path, img_name + extension), out_img[0],
                params=(cv.IMWRITE_TIFF_COMPRESSION, 1))
-
-    if show_format:
-        output_color_space = 0
-    else:
-        output_color_space = settings.output_color_space
 
     with exiftool.ExifTool("exiftool.exe") as et:
         et.execute(rf"-icc_profile<=ICC Profiles\{settings.color_spaces[output_color_space]}.icc",
@@ -171,7 +169,7 @@ def write_image(in_img, img_name, sub_folder, extension='.' + settings.output_ex
 
 
 # Image format: (ndarray, ((color space index, bit depth index), metadata)))
-def read_image(img_name, sub_folder='Exported Images', col_depth=-1):
+def read_image(img_name, sub_folder='Exported Images', col_depth=-1, convert=True):
     img_path = os.path.join(settings.main_directory, sub_folder, img_name)
     if str.strip(img_name) == '' or os.path.exists(img_path) is False:
         return None
@@ -209,7 +207,10 @@ def read_image(img_name, sub_folder='Exported Images', col_depth=-1):
         if data in md:
             metadata[1][data] = md[data]
 
-    out_img = image_manipulation.convert_color((img, metadata), 'in')
+    if convert:
+        out_img = image_manipulation.convert_color((img, metadata), 'in')
+    else:
+        out_img = (img.astype(main_script.bit_type[metadata[0][1]]), metadata)
 
     return out_img
 
@@ -358,7 +359,7 @@ def read_crop(in_name, ref_gray=False):
     try:
         root = ElementTree.parse(rf"{crop_path}\{in_name.split('_')[0]}.xml").getroot()
     except BaseException as error:
-        utilities.print_color(f"An exception occurred: {error}", 'error')
+        utilities.print_color(error, 'error')
         return None
 
     if ref_gray:

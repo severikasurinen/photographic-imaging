@@ -12,7 +12,7 @@ gray_warning_limit = 1.0        # ref. gray min. dE for warning
 input_extension = 'tif'         # Input file extension
 
 output_illuminant = 'D50'       # 'D50' (recommended, common in printing), 'D65' (common in other applications)
-output_color_space = 2          # 0: sRGB, 1: Adobe RGB, 2: ProPhoto RGB (recommended), 3: ACES 2065-1
+output_color_space = 2          # 0: sRGB, 1: Adobe RGB, 2: ProPhoto RGB (recommended)
 output_depth = 1                # 0: 8bit - 1: 16bit (recommended)
 output_extension = 'tif'        # Output file extension
 
