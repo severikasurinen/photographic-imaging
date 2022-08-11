@@ -458,7 +458,7 @@ def measure_series(path, ref_name, mode, measurement_name):
                                 utilities.get_angle((0, 0), (avg_lab[1], avg_lab[2]), clamp=True)  # h°
                                 ])
             x.append(file_names[i].split('.')[0].split('_')[1])
-            y.append(math.dist((0, 0), (avg_lab[1], avg_lab[2])))
+            y.append(utilities.get_angle((0, 0), (avg_lab[1], avg_lab[2]), clamp=True))
 
             img_a = image_manipulation.scale_image((cv.rectangle(img[0], (roi[0], roi[1]),
                                                                  (roi[0] + roi[2], roi[1] + roi[3]),
@@ -473,10 +473,10 @@ def measure_series(path, ref_name, mode, measurement_name):
             if est_data[1] == 1:
                 utilities.print_estimate(est_data[0], est_data[1] / len(file_names))
 
-        # Plot C* measurements
+        # Plot h° measurements
         plt.plot(x, y, 'rx')
         plt.xlabel('measurement')
-        plt.ylabel('C*')
+        plt.ylabel('h°')
         plt.show()
 
         data_name = file_names[0].split('.')[0].split('_')[0] + '_area_data'
@@ -545,10 +545,10 @@ def measure_series(path, ref_name, mode, measurement_name):
                 series_data[1 + i][7].append(math.dist((0, 0), (x_lab[1], x_lab[2])))  # C*
                 series_data[1 + i][8].append(utilities.get_angle((0, 0), (x_lab[1], x_lab[2]), clamp=True))  # h°
 
-            # Plot C* along line
-            plt.plot(series_data[1 + i][2], series_data[1 + i][7], 'rx')
+            # Plot h° along line
+            plt.plot(series_data[1 + i][2], series_data[1 + i][8], 'rx')
             plt.xlabel('x (mm)')
-            plt.ylabel('C*')
+            plt.ylabel('h°')
             plt.ylim((0, 50))
             plt.show()
 
