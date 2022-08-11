@@ -358,8 +358,10 @@ def read_crop(in_name, ref_gray=False):
 
     try:
         root = ElementTree.parse(rf"{crop_path}\{in_name.split('_')[0]}.xml").getroot()
+    except FileNotFoundError:
+        return None
     except BaseException as error:
-        utilities.print_color(error, 'error')
+        utilities.print_color(f"An exception occurred: {error}", 'error')
         return None
 
     if ref_gray:

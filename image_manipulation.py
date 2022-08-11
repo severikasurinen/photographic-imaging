@@ -36,24 +36,25 @@ def convert_color(in_cols, conversion, is_thread=False, operations=1):
                                              main_script.color_model[split_cols[i][1][0][0]].matrix_RGB_to_XYZ)
                 # XYZ to LAB
                 lab_vals = colour.XYZ_to_Lab(xyz_vals, illuminant=colour.CCS_ILLUMINANTS[
-                                'CIE 1931 2 Degree Standard Observer']['D50'])
+                    'CIE 1931 2 Degree Standard Observer']['D50'])
 
                 out_cols.append(lab_vals)
             elif conversion == 'adapt':
                 xyz_vals = colour.Lab_to_XYZ(split_cols[i][0], illuminant=colour.CCS_ILLUMINANTS[
-                                'CIE 1931 2 Degree Standard Observer'][in_cols[1]])
+                    'CIE 1931 2 Degree Standard Observer'][in_cols[1]])
 
                 xyz_vals = colour.chromatic_adaptation(xyz_vals, colour.xy_to_XYZ(
-                                colour.CCS_ILLUMINANTS['CIE 1931 2 Degree Standard Observer'][in_cols[1]]),
+                    colour.CCS_ILLUMINANTS['CIE 1931 2 Degree Standard Observer'][in_cols[1]]),
                                                        colour.xy_to_XYZ(
-                                colour.CCS_ILLUMINANTS['CIE 1931 2 Degree Standard Observer']['D50']))
+                                                           colour.CCS_ILLUMINANTS[
+                                                               'CIE 1931 2 Degree Standard Observer']['D50']))
                 lab_vals = colour.XYZ_to_Lab(xyz_vals, illuminant=colour.CCS_ILLUMINANTS[
-                                'CIE 1931 2 Degree Standard Observer']['D50'])
+                    'CIE 1931 2 Degree Standard Observer']['D50'])
 
                 out_cols.append(lab_vals)
             else:
                 xyz_vals = colour.Lab_to_XYZ(split_cols[i][0], illuminant=colour.CCS_ILLUMINANTS[
-                            'CIE 1931 2 Degree Standard Observer']['D50'])
+                    'CIE 1931 2 Degree Standard Observer']['D50'])
 
                 if conversion == 'out':
                     rgb_vals = main_script.color_model[settings.output_color_space].cctf_encoding(colour.XYZ_to_RGB(
@@ -81,12 +82,13 @@ def convert_color(in_cols, conversion, is_thread=False, operations=1):
                     out_cols.append(bgr_vals)
                 elif conversion == 'LAB':
                     xyz_vals = colour.chromatic_adaptation(xyz_vals, colour.xy_to_XYZ(
-                                    colour.CCS_ILLUMINANTS['CIE 1931 2 Degree Standard Observer']['D50']),
+                        colour.CCS_ILLUMINANTS['CIE 1931 2 Degree Standard Observer']['D50']),
                                                            colour.xy_to_XYZ(
-                                    colour.CCS_ILLUMINANTS[
-                                        'CIE 1931 2 Degree Standard Observer'][settings.output_illuminant]))
+                                                               colour.CCS_ILLUMINANTS[
+                                                                   'CIE 1931 2 Degree Standard Observer'][
+                                                                   settings.output_illuminant]))
                     lab_vals = colour.XYZ_to_Lab(xyz_vals, illuminant=colour.CCS_ILLUMINANTS[
-                                'CIE 1931 2 Degree Standard Observer'][settings.output_illuminant])
+                        'CIE 1931 2 Degree Standard Observer'][settings.output_illuminant])
 
                     out_cols.append(lab_vals)
                 elif conversion == 'RGB':
@@ -163,15 +165,19 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
 
     file_names = natsort.natsorted(os.listdir(os.path.join(settings.main_directory, path)))
 
-    if not ref_gray:    # If cropping reference gray, no need to handle reference data
-        # Check if cropped image exists, otherwise ignore existing data
-        crop_exists = os.path.exists(os.path.join(rf'{os.path.join(settings.main_directory, path)}\Cropped',
-                                                  file_names[0].split('.')[0] + '_cropped.'
-                                                  + settings.output_extension))
+    if not ref_gray:  # If cropping reference gray, no need to handle reference data
         ref_crop_data = image_utilities.read_crop(file_names[0])
+        if ref_crop_data is not None:
+            start_file = ref_crop_data[1][0] + '.' + settings.output_extension
+            # Check if cropped image exists, otherwise ignore existing data
+            crop_exists = os.path.exists(os.path.join(rf'{os.path.join(settings.main_directory, path)}\Cropped',
+                                                      start_file.split('.')[0] + '_cropped.'
+                                                      + settings.output_extension))
+        else:
+            start_file = file_names[0]
+            crop_exists = False
 
         if not crop_exists or adjust:
-            start_file = file_names[0]
             img = None
             while img is None:  # Wait for successful read
                 img = image_utilities.read_image(start_file, os.path.join(settings.main_directory, path), convert=False)
@@ -243,9 +249,9 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
                 image_utilities.show_image("Reference points", scale_image((np.concatenate(img_refs), img[1]))[0],
                                            False)
 
+            img = image_utilities.read_image(file_names[i], os.path.join(settings.main_directory, path),
+                                             convert=False)
             if file_names[i] != start_file:
-                img = image_utilities.read_image(file_names[i], os.path.join(settings.main_directory, path),
-                                                 convert=False)
 
                 if data_exists:
                     ref_points = match_crop(img, 1, ref_crop_data[0][file_names[i].split('.')[0]], convert=False)
@@ -260,23 +266,20 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
 
             ref_point_list.append((file_names[i].split('.')[0], ref_points))
 
-            if ref_points == start_points:
-                matched_img = img
-            else:
-                ref_angle = (utilities.get_angle(start_points[0], start_points[1])
-                             - utilities.get_angle(ref_points[0], ref_points[1]))
-                ref_scale = math.dist(start_points[0], start_points[1]) / math.dist(ref_points[0], ref_points[1])
+            ref_angle = (utilities.get_angle(start_points[0], start_points[1])
+                         - utilities.get_angle(ref_points[0], ref_points[1]))
+            ref_scale = math.dist(start_points[0], start_points[1]) / math.dist(ref_points[0], ref_points[1])
 
-                ref_translate = (0, 0)
-                for o in range(2):
-                    ref_polar = image_utilities.cvt_point(ref_points[o], 2)
-                    new_ref = image_utilities.cvt_point((ref_polar[0] * ref_scale, ref_polar[1] + ref_angle), -2)
-                    ref_translate = np.sum((ref_translate, np.subtract(start_points[o], new_ref)), axis=0)
+            ref_translate = (0, 0)
+            for o in range(2):
+                ref_polar = image_utilities.cvt_point(ref_points[o], 2)
+                new_ref = image_utilities.cvt_point((ref_polar[0] * ref_scale, ref_polar[1] + ref_angle), -2)
+                ref_translate = np.sum((ref_translate, np.subtract(start_points[o], new_ref)), axis=0)
 
-                ref_translate = np.divide(ref_translate, 2)
+            ref_translate = np.divide(ref_translate, 2)
 
-                matched_img = translate_image(scale_image(rotate_image(img, ref_angle), ref_scale)[0],
-                                              ref_translate)
+            matched_img = translate_image(scale_image(rotate_image(img, ref_angle), ref_scale)[0],
+                                          ref_translate)
 
             img_c = rotate_image(matched_img, ref_crop[0])
         else:
@@ -364,7 +367,15 @@ def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), 
 
             img_c = rotate_image(img_c, ref_angle)
 
-        roi, key_pressed = image_utilities.get_roi(img_c, show_format=True)[1:3]
+        if ref_points[1] != ((0, 0), (0, 0)):
+            roi = image_utilities.cvt_point(ref_points[1][0], -1, in_img[0].shape)
+            roi = (roi[0] * img_scale, roi[1] * img_scale,
+                   abs(ref_points[1][1][0] - ref_points[1][0][0]) * img_scale,
+                   abs(ref_points[1][1][1] - ref_points[1][0][1]) * img_scale)
+            roi, key_pressed = image_utilities.get_roi(img_c, in_roi=roi, show_format=True)[1:3]
+        else:
+            roi, key_pressed = image_utilities.get_roi(img_c, show_format=True)[1:3]
+
         cv.destroyAllWindows()
         if key_pressed == 'escape':
             return None
