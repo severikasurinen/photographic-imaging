@@ -12,7 +12,6 @@ import cv2 as cv  # Import OpenCV library
 import colour  # Import Colour Science library
 import natsort
 
-
 max_val = (pow(2, 8) - 1, pow(2, 16) - 1)  # 8bit: 0-255 - 16bit: 0-65635
 color_model = (colour.models.RGB_COLOURSPACE_sRGB, colour.models.RGB_COLOURSPACE_ADOBE_RGB1998,
                colour.models.RGB_COLOURSPACE_PROPHOTO_RGB, colour.models.RGB_COLOURSPACE_ACES2065_1)
@@ -25,10 +24,11 @@ def main():
 
     print()
     utilities.create_directories(settings.main_directory)
+    start_time = 0
+    end_time = 0
 
     while True:
-        script_mode = input("Script mode (0: Apply corrections, 1: Create calibration profile"
-                            ", 2: Measure image uniformity, 3: Crop images, 4: Measure series color"
+        script_mode = input("Script mode (0: Apply corrections, 1: Calibrate, 2: Crop images, 3: Measure series color"
                             ", ENTER: Exit): ")
         if script_mode is not None:
             script_mode = script_mode.strip()
@@ -37,7 +37,7 @@ def main():
             return
 
         script_mode = int(script_mode)
-        if 0 <= script_mode <= 4:
+        if 0 <= script_mode <= 3:
             break
         else:
             print("Invalid mode.")
@@ -49,7 +49,7 @@ def main():
                 if focus_input is not None:
                     focus_input = focus_input.strip()
             else:
-                focus_input = ''       # Use default height
+                focus_input = ''  # Use default height
 
             profile_data = image_utilities.read_profile(focus_input)
             if profile_data is not None:
@@ -135,140 +135,157 @@ def main():
 
         end_time = time.perf_counter()
 
-    elif script_mode == 1:  # Create calibration profile
+    elif script_mode == 1:  # Calibration
         while True:
-            ref_name = settings.reference_types[0]
-            ref_data = None
-            if len(settings.reference_types) > 1:
-                ref_name = input("Reference type: ")
-                if ref_name.strip() == '':
-                    ref_name = 'it87'
-                ref_data = image_utilities.read_reference(ref_name)
-            if ref_data is not None:
+            calib_mode = input("Measuring mode (0: Create calibration profile, 1: Measure image uniformity"
+                               ", ENTER: Main menu): ")
+            if calib_mode is not None:
+                calib_mode = calib_mode.strip()
+            if calib_mode == '':
+                main()  # Return to main menu
+                return
+
+            calib_mode = int(calib_mode)
+            if 0 <= calib_mode <= 1:
                 break
             else:
-                print("Invalid reference.")
+                print("Invalid mode.")
 
-        while True:
-            focus_height = input("Height - focus height (mm): ")
-            if focus_height is not None:
-                focus_height = focus_height.strip()
-            img = image_utilities.read_image('calib_' + focus_height + '.' + settings.input_extension,
-                                             r'Calibration\Calibration Images')
-            if img is not None:
-                break
-            else:
-                print("Calibration image not found.")
+        if calib_mode == 0:     # Create calibration profile
+            while True:
+                ref_name = settings.reference_types[0]
+                ref_data = None
+                if len(settings.reference_types) > 1:
+                    ref_name = input("Reference type: ")
+                    if ref_name.strip() == '':
+                        ref_name = 'it87'
+                    ref_data = image_utilities.read_reference(ref_name)
+                if ref_data is not None:
+                    break
+                else:
+                    print("Invalid reference.")
 
-        start_time = time.perf_counter()
-
-        # Get reference gray image
-        gray_img = image_utilities.read_image('calib-gray_' + focus_height + '.' + settings.input_extension,
-                                              r'Calibration\Calibration Images')
-
-        if gray_img is None:
-            print()
-            utilities.print_color("Warning: Ref. gray not found!", 'warning')
-            print()
-        else:
-            if utilities.yes_no_prompt("Use safety margins?"):
-                gray_img = image_utilities.get_safe_area(gray_img)
-            ref_crop = image_manipulation.match_crop(gray_img, 0)
-            lt_corner = image_utilities.cvt_point(ref_crop[1][0], -1, gray_img[0].shape)
-            gray_img = image_utilities.get_roi(image_manipulation.rotate_image(gray_img, ref_crop[0]), 1,
-                                               in_roi=(lt_corner[0], lt_corner[1],
-                                                       abs(ref_crop[1][1][0] - ref_crop[1][0][0]),
-                                                       abs(ref_crop[1][1][1] - ref_crop[1][0][1])))[0]
-
-        image_utilities.show_image("Loaded image", image_manipulation.scale_image(img)[0])
-
-        target_c = image_manipulation.crop_target(img, image_utilities.read_image(
-            ref_name + '.jpg', r'Calibration\Reference Values'), ref_data[0][0])
-
-        correction_lut = calibration.color_calibration(target_c, ref_data)[0]
-
-        print()
-        target_a = image_manipulation.adjust_color(target_c, correction_lut)
-
-        # Show corrected colorchecker and get accuracy
-        fit_data, sample_data = calibration.color_calibration(target_a, ref_data, True)[1:3]
-        print()
-
-        # Get reference gray LAB
-        gray_lab = (0, 0, 0)
-        if gray_img is not None:
-            gray_avg = image_manipulation.adjust_color((image_utilities.get_average_color(gray_img), gray_img[1]),
-                                                       correction_lut)
-            gray_lab = tuple(elem for elem in gray_avg[0])
-
-            print(f"Ref. gray LAB ({settings.output_illuminant}): {image_manipulation.convert_color(gray_avg, 'LAB')}")
-            print()
-
-        print("Correction LUT:", correction_lut)
-
-        end_time = time.perf_counter()
-        key_pressed = image_utilities.wait_key()
-        cv.destroyAllWindows()
-
-        if key_pressed != 'escape':
-            image_utilities.write_profile(focus_height, correction_lut, gray_lab, img[1],
-                                          fit_data, sample_data, ref_data[0][0])
-        else:
-            print("Discarding profile data.")
-
-    elif script_mode == 2:  # Measure image uniformity
-        use_margins = utilities.yes_no_prompt("Use safety margins?")
-
-        while True:
-            file_name = input("Image file name: ")
-
-            path = image_utilities.sample_path(file_name)
-            if os.path.exists(os.path.join(settings.main_directory, path)):
-                for file in os.listdir(os.path.join(settings.main_directory, path)):
-                    file = str(file)
-
-                    if file_name == file.split('.')[0]:
-                        file_name = file
-                        break
-                    elif len(file_name.split('_')) <= len(file.split('_')):
-                        is_same = True
-                        for i in range(len(file_name.split('_'))):
-                            if file_name.split('_')[i] != file.split('_')[i]:
-                                is_same = False
-
-                        if is_same:
-                            file_name = file
-                            break
-
-                img = image_utilities.read_image(file_name, path)
+            while True:
+                focus_height = input("Height - focus height (mm): ")
+                if focus_height is not None:
+                    focus_height = focus_height.strip()
+                img = image_utilities.read_image('calib_' + focus_height + '.' + settings.input_extension,
+                                                 r'Calibration\Calibration Images')
                 if img is not None:
                     break
+                else:
+                    print("Calibration image not found.")
 
-            print("Invalid image.")
+            start_time = time.perf_counter()
 
-        print()
+            # Get reference gray image
+            gray_img = image_utilities.read_image('calib-gray_' + focus_height + '.' + settings.input_extension,
+                                                  r'Calibration\Calibration Images')
 
-        start_time = time.perf_counter()
+            if gray_img is None:
+                print()
+                utilities.print_color("Warning: Ref. gray not found!", 'warning')
+                print()
+            else:
+                if utilities.yes_no_prompt("Use safety margins?"):
+                    gray_img = image_utilities.get_safe_area(gray_img)
+                ref_crop = image_manipulation.match_crop(gray_img, 0)
+                lt_corner = image_utilities.cvt_point(ref_crop[1][0], -1, gray_img[0].shape)
+                gray_img = image_utilities.get_roi(image_manipulation.rotate_image(gray_img, ref_crop[0]), 1,
+                                                   in_roi=(lt_corner[0], lt_corner[1],
+                                                           abs(ref_crop[1][1][0] - ref_crop[1][0][0]),
+                                                           abs(ref_crop[1][1][1] - ref_crop[1][0][1])))[0]
 
-        if use_margins:
-            img = image_utilities.get_safe_area(img)
-        img_uniformity = calibration.image_uniformity(image_utilities.get_roi(img)[0])
+            image_utilities.show_image("Loaded image", image_manipulation.scale_image(img)[0])
 
-        image_utilities.show_image("Image uniformity", image_manipulation.scale_image(img_uniformity)[0], convert=False)
+            target_c = image_manipulation.crop_target(img, image_utilities.read_image(
+                ref_name + '.jpg', r'Calibration\Reference Values'), ref_data[0][0])
 
-        end_time = time.perf_counter()
-        key_pressed = image_utilities.wait_key()
-        cv.destroyAllWindows()
+            correction_lut = calibration.color_calibration(target_c, ref_data)[0]
 
-        if key_pressed != 'escape':
-            # Save uniformity image after closing window
-            image_utilities.write_image(img_uniformity, file_name.split('.')[0], r'Calibration\Image Uniformity',
-                                        '_uniformity.' + settings.output_extension, True, convert=False)
-            print("Uniformity image saved.")
-        else:
-            print("Discarding uniformity image.")
+            print()
+            target_a = image_manipulation.adjust_color(target_c, correction_lut)
 
-    elif script_mode == 3:  # Crop images
+            # Show corrected colorchecker and get accuracy
+            fit_data, sample_data = calibration.color_calibration(target_a, ref_data, True)[1:3]
+            print()
+
+            # Get reference gray LAB
+            gray_lab = (0, 0, 0)
+            if gray_img is not None:
+                gray_avg = image_manipulation.adjust_color((image_utilities.get_average_color(gray_img), gray_img[1]),
+                                                           correction_lut)
+                gray_lab = tuple(elem for elem in gray_avg[0])
+
+                print(f"Ref. gray LAB ({settings.output_illuminant}): {image_manipulation.convert_color(gray_avg, 'LAB')}")
+                print()
+
+            print("Correction LUT:", correction_lut)
+
+            end_time = time.perf_counter()
+            key_pressed = image_utilities.wait_key()
+            cv.destroyAllWindows()
+
+            if key_pressed != 'escape':
+                image_utilities.write_profile(focus_height, correction_lut, gray_lab, img[1],
+                                              fit_data, sample_data, ref_data[0][0])
+            else:
+                print("Discarding profile data.")
+
+        elif calib_mode == 1:  # Measure image uniformity
+            use_margins = utilities.yes_no_prompt("Use safety margins?")
+
+            while True:
+                file_name = input("Image file name: ")
+
+                path = image_utilities.sample_path(file_name)
+                if os.path.exists(os.path.join(settings.main_directory, path)):
+                    for file in os.listdir(os.path.join(settings.main_directory, path)):
+                        file = str(file)
+
+                        if file_name == file.split('.')[0]:
+                            file_name = file
+                            break
+                        elif len(file_name.split('_')) <= len(file.split('_')):
+                            is_same = True
+                            for i in range(len(file_name.split('_'))):
+                                if file_name.split('_')[i] != file.split('_')[i]:
+                                    is_same = False
+
+                            if is_same:
+                                file_name = file
+                                break
+
+                    img = image_utilities.read_image(file_name, path)
+                    if img is not None:
+                        break
+
+                print("Invalid image.")
+
+            print()
+
+            start_time = time.perf_counter()
+
+            if use_margins:
+                img = image_utilities.get_safe_area(img)
+            img_uniformity = calibration.image_uniformity(image_utilities.get_roi(img)[0])
+
+            image_utilities.show_image("Image uniformity", image_manipulation.scale_image(img_uniformity)[0],
+                                       convert=False)
+
+            end_time = time.perf_counter()
+            key_pressed = image_utilities.wait_key()
+            cv.destroyAllWindows()
+
+            if key_pressed != 'escape':
+                # Save uniformity image after closing window
+                image_utilities.write_image(img_uniformity, file_name.split('.')[0], r'Calibration\Image Uniformity',
+                                            '_uniformity.' + settings.output_extension, True, convert=False)
+                print("Uniformity image saved.")
+            else:
+                print("Discarding uniformity image.")
+
+    elif script_mode == 2:  # Crop images
         while True:
             sample_name = input("Sample name: ")
             if len(sample_name.split('_')[0].split('-')) > 1:
@@ -288,13 +305,14 @@ def main():
 
         end_time = time.perf_counter()
 
-    elif script_mode == 4:  # Measure series color
+    elif script_mode == 3:  # Measure series color
         while True:
-            measure_mode = input("Measuring mode (0: Measure area, 1: Measure along line, ENTER: Home menu): ")
+            measure_mode = input("Measuring mode (0: Measure area, 1: Measure along line, ENTER: Main menu): ")
             if measure_mode is not None:
                 measure_mode = measure_mode.strip()
             if measure_mode == '':
-                main()
+                main()  # Return to main menu
+                return
 
             measure_mode = int(measure_mode)
             if 0 <= measure_mode <= 1:

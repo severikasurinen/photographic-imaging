@@ -460,9 +460,8 @@ def measure_series(path, ref_name, mode, measurement_name):
             x.append(file_names[i].split('.')[0].split('_')[1])
             y.append(math.dist((0, 0), (avg_lab[1], avg_lab[2])))
 
-            img_a = image_manipulation.scale_image((cv.rectangle(img[0], (measurement_roi[1][0], measurement_roi[1][1]),
-                                                                 (measurement_roi[1][0] + measurement_roi[1][2],
-                                                                  measurement_roi[1][1] + measurement_roi[1][3]),
+            img_a = image_manipulation.scale_image((cv.rectangle(img[0], (roi[0], roi[1]),
+                                                                 (roi[0] + roi[2], roi[1] + roi[3]),
                                                                  (0, 0, main_script.max_val[img[1][0][1]]), 3),
                                                     img[1]))[0]
             write_image(img_a,
