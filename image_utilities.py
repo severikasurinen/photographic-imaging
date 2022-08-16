@@ -390,6 +390,8 @@ def read_reference(ref_name):
                                               ref_name + '.xml')
                                  ).getroot()
         print(f"Read reference '{ref_name}' values.")
+    except FileNotFoundError:
+        return None
     except BaseException as error:
         utilities.print_color(f"An exception occurred: {error}", 'error')
         return None
@@ -549,7 +551,7 @@ def measure_series(path, ref_name, mode, measurement_name):
             plt.plot(series_data[1 + i][2], series_data[1 + i][8], 'rx')
             plt.xlabel('x (mm)')
             plt.ylabel('h°')
-            plt.ylim((0, 50))
+            # plt.ylim((0, 50))
             plt.show()
 
             img_l = image_manipulation.scale_image(
