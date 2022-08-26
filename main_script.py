@@ -1,4 +1,3 @@
-# TODO: Comments
 import settings
 import utilities
 import image_utilities
@@ -13,20 +12,19 @@ import colour  # Import Colour Science library
 import natsort
 
 max_val = (pow(2, 8) - 1, pow(2, 16) - 1)  # 8bit: 0-255 - 16bit: 0-65635
+# Color models corresponding to color spaces in settings.py
 color_model = (colour.models.RGB_COLOURSPACE_sRGB, colour.models.RGB_COLOURSPACE_ADOBE_RGB1998,
                colour.models.RGB_COLOURSPACE_PROPHOTO_RGB, colour.models.RGB_COLOURSPACE_ACES2065_1)
 bit_type = ('uint8', 'uint16')
 
 
 def main():
-    # utilities.plot_spectra(('spectrum_250', 'spectrum_250_3200K', 'spectrum_250_9500K', 'spectrum_250_base'),
-    #                        r'Calibration\Spectra', sum_indices=(1, 2))
-
     print()
-    utilities.create_directories(settings.main_directory)
+    utilities.create_directories(settings.main_directory)   # Create imaging system directory structure
     start_time = 0
     end_time = 0
 
+    # Start in main menu
     while True:
         script_mode = input("Script mode (0: Apply corrections, 1: Calibrate, 2: Crop images, 3: Measure series color"
                             ", ENTER: Exit): ")
@@ -38,6 +36,7 @@ def main():
 
         script_mode = int(script_mode)
         if 0 <= script_mode <= 3:
+            # Invalid input
             break
         else:
             print("Invalid mode.")
@@ -45,11 +44,13 @@ def main():
     if script_mode == 0:  # Apply corrections
         while True:
             if settings.prompt_focus_height:
+                # Ask user for focus height
                 focus_input = input("Height - focus height (mm): ")
                 if focus_input is not None:
                     focus_input = focus_input.strip()
             else:
-                focus_input = ''  # Use default height
+                # Use default height
+                focus_input = ''
 
             profile_data = image_utilities.read_profile(focus_input)
             if profile_data is not None:
@@ -60,6 +61,7 @@ def main():
 
         start_time = time.perf_counter()
 
+        # Sort files alphabetically
         file_names = natsort.natsorted(os.listdir(os.path.join(settings.main_directory, 'Exported Images')))
         gray_files = []
         study_names = []
@@ -68,19 +70,24 @@ def main():
         use_margins = None
         for file_name in file_names:
             if len(file_name.split('-')) > 1 and file_name.split('-')[1].split('_')[0] == "gray":
+                # File name corresponds to ref. gray
                 gray_files.append(file_name)
                 if study_names.count(file_name.split('_')[0]) < 1:
                     study_names.append(file_name.split('_')[0])
                 if use_margins is None:
                     use_margins = utilities.yes_no_prompt("Use safety margins?")
                 if use_margins:
+                    # Get area in safety margins
                     img_gray = image_utilities.get_safe_area(image_utilities.read_image(file_name))
                 else:
+                    # Use full image
                     img_gray = image_utilities.read_image(file_name)
+
+                # Correct ref. gray, write result
                 image_utilities.write_image(image_manipulation.adjust_color(img_gray, profile_data[0]),
                                             file_name.split('.')[0], image_utilities.sample_path(file_name),
                                             '_cc.' + settings.output_extension)
-                os.remove(os.path.join(settings.main_directory, 'Exported Images', file_name))
+                os.remove(os.path.join(settings.main_directory, 'Exported Images', file_name))  # Remove original
 
         # Crop ref. grays
         for study_name in study_names:
@@ -108,6 +115,7 @@ def main():
                 utilities.print_color("Warning: Ref. gray not found!", 'warning')
                 print()
             else:
+                # Read ref. gray values
                 measurement_gray = measurement_gray[int(file_names[i].split('.')[0].split('_')[1])]
                 ref_diff = np.subtract(profile_data[1], measurement_gray)
                 ref_ciede = colour.delta_E(profile_data[1], measurement_gray, method='CIE 2000').round(2)
@@ -116,15 +124,17 @@ def main():
                 else:
                     utilities.print_color(f"Ref. gray dE OK, {ref_ciede}.", 'green')
 
+            # Write corrected image
             image_utilities.write_image(image_manipulation.adjust_color(img, profile_data[0], gray_diff=ref_diff),
                                         file_names[i].split('.')[0], path, '_cc.' + settings.output_extension)
-            os.remove(os.path.join(settings.main_directory, 'Exported Images', file_names[i]))
+            os.remove(os.path.join(settings.main_directory, 'Exported Images', file_names[i]))  # Remove original
 
             if sample_names.count(file_names[i].split('_')[0]) == 0:
                 sample_names.append(file_names[i].split('_')[0])
 
             est_data[1] += 1
             if est_data[1] == 1:
+                # Estimate total processing time based on first image
                 utilities.print_estimate(est_data[0], est_data[1] / len(file_names))
 
         if len(sample_names) > 0:
@@ -153,11 +163,13 @@ def main():
 
         if calib_mode == 0:     # Create calibration profile
             while True:
+                # Prompt for color target type
                 ref_name = settings.reference_types[0]
                 ref_data = None
                 if len(settings.reference_types) > 1:
                     ref_name = input("Reference type: ")
                     if ref_name.strip() == '':
+                        # Set default target
                         ref_name = 'it87'
                     ref_data = image_utilities.read_reference(ref_name)
                 if ref_data is not None:
@@ -166,6 +178,7 @@ def main():
                     print("Invalid reference.")
 
             while True:
+                # Prompt for focus height of calibration image
                 focus_height = input("Height - focus height (mm): ")
                 if focus_height is not None:
                     focus_height = focus_height.strip()
@@ -188,36 +201,40 @@ def main():
                 print()
             else:
                 if utilities.yes_no_prompt("Use safety margins?"):
-                    gray_img = image_utilities.get_safe_area(gray_img)
-                ref_crop = image_manipulation.match_crop(gray_img, 0)
-                lt_corner = image_utilities.cvt_point(ref_crop[1][0], -1, gray_img[0].shape)
+                    gray_img = image_utilities.get_safe_area(gray_img)  # Crop to safety margins
+                ref_crop = image_manipulation.match_crop(gray_img, 0)   # Prompt for crop
+                lt_corner = image_utilities.cvt_point(ref_crop[1][0], -1, gray_img[0].shape)    # Upper left corner
+
+                # Rotate and crop as selected
                 gray_img = image_utilities.get_roi(image_manipulation.rotate_image(gray_img, ref_crop[0]), 1,
                                                    in_roi=(lt_corner[0], lt_corner[1],
                                                            abs(ref_crop[1][1][0] - ref_crop[1][0][0]),
                                                            abs(ref_crop[1][1][1] - ref_crop[1][0][1])))[0]
 
-            image_utilities.show_image("Loaded image", image_manipulation.scale_image(img)[0])
+            image_utilities.show_image("Loaded image", image_manipulation.scale_image(img)[0])  # Show original
 
+            # Crop color target
             target_c = image_manipulation.crop_target(img, image_utilities.read_image(
                 ref_name + '.jpg', r'Calibration\Reference Values'), ref_data[0][0])
 
-            correction_lut = calibration.color_calibration(target_c, ref_data)[0]
+            correction_lut = calibration.color_calibration(target_c, ref_data)[0]   # Create 3D LUT
 
             print()
-            target_a = image_manipulation.adjust_color(target_c, correction_lut)
+            target_a = image_manipulation.adjust_color(target_c, correction_lut)    # Correct color target
 
-            # Show corrected colorchecker and get accuracy
+            # Show corrected color target and get accuracy
             fit_data, sample_data = calibration.color_calibration(target_a, ref_data, True)[1:3]
             print()
 
-            # Get reference gray LAB
+            # Get ref. gray LAB values
             gray_lab = (0, 0, 0)
             if gray_img is not None:
                 gray_avg = image_manipulation.adjust_color((image_utilities.get_average_color(gray_img), gray_img[1]),
                                                            correction_lut)
                 gray_lab = tuple(elem for elem in gray_avg[0])
 
-                print(f"Ref. gray LAB ({settings.output_illuminant}): {image_manipulation.convert_color(gray_avg, 'LAB')}")
+                print(f"Ref. gray LAB ({settings.output_illuminant}):"
+                      f"{image_manipulation.convert_color(gray_avg, 'LAB')}")
                 print()
 
             print("Correction LUT:", correction_lut)
@@ -227,6 +244,7 @@ def main():
             cv.destroyAllWindows()
 
             if key_pressed != 'escape':
+                # Save 3D LUT
                 image_utilities.write_profile(focus_height, correction_lut, gray_lab, img[1],
                                               fit_data, sample_data, ref_data[0][0])
             else:
@@ -236,8 +254,10 @@ def main():
             use_margins = utilities.yes_no_prompt("Use safety margins?")
 
             while True:
+                # Prompt for file to measure
                 file_name = input("Image file name: ")
 
+                # Get path of file
                 path = image_utilities.sample_path(file_name)
                 if os.path.exists(os.path.join(settings.main_directory, path)):
                     for file in os.listdir(os.path.join(settings.main_directory, path)):
@@ -267,7 +287,7 @@ def main():
             start_time = time.perf_counter()
 
             if use_margins:
-                img = image_utilities.get_safe_area(img)
+                img = image_utilities.get_safe_area(img)    # Crop to safety margins
             img_uniformity = calibration.image_uniformity(image_utilities.get_roi(img)[0])
 
             image_utilities.show_image("Image uniformity", image_manipulation.scale_image(img_uniformity)[0],
@@ -287,6 +307,7 @@ def main():
 
     elif script_mode == 2:  # Crop images
         while True:
+            # Prompt for sample name
             sample_name = input("Sample name: ")
             if len(sample_name.split('_')[0].split('-')) > 1:
                 path = rf"Corrected Images\{sample_name.split('_')[0].split('-')[0]}\{sample_name}"
@@ -297,21 +318,23 @@ def main():
             else:
                 print("Invalid sample.")
 
-        adjusting = utilities.yes_no_prompt("Adjust crop?")
+        adjusting = utilities.yes_no_prompt("Adjust crop?")     # If not, images with existing crop data will be skipped
 
         start_time = time.perf_counter()
 
-        image_manipulation.crop_samples(sample_name, adjusting)
+        image_manipulation.crop_samples(sample_name, adjusting)     # Crop sample image(s)
 
         end_time = time.perf_counter()
 
     elif script_mode == 3:  # Measure series color
         while True:
+            # Prompt for measurement type
             measure_mode = input("Measuring mode (0: Measure area, 1: Measure along line, ENTER: Main menu): ")
             if measure_mode is not None:
                 measure_mode = measure_mode.strip()
             if measure_mode == '':
-                main()  # Return to main menu
+                # Return to main menu
+                main()
                 return
 
             measure_mode = int(measure_mode)
@@ -321,7 +344,8 @@ def main():
                 print("Invalid mode.")
 
         while True:
-            img_name = input("Series name: ")
+            # Prompt for sample name
+            img_name = input("Sample name: ")
             if len(img_name.split('_')[0].split('-')) > 1:
                 path = rf"Corrected Images\{img_name.split('_')[0].split('-')[0]}\{img_name}"
             else:
@@ -332,9 +356,10 @@ def main():
             elif img_name.strip() != '' and os.path.exists(os.path.join(settings.main_directory, path)):
                 break
             else:
-                print("Invalid series.")
+                print("Invalid sample.")
 
         while True:
+            # Prompt for image to use as dE reference
             ref_name = input("Reference image name: ")
             if ref_name == '':
                 for file_name in natsort.natsorted(os.listdir(os.path.join(settings.main_directory, path))):
@@ -349,6 +374,7 @@ def main():
                 print("Invalid image.")
 
         while True:
+            # Prompt for name of measurement
             measurement_name = input("Color measurement name: ")
             if measurement_name.strip() != '' and measurement_name == measurement_name.strip():
                 break
@@ -357,7 +383,7 @@ def main():
 
         start_time = time.perf_counter()
 
-        image_utilities.measure_series(path, ref_name, measure_mode, measurement_name)
+        image_utilities.measure_series(path, ref_name, measure_mode, measurement_name)  # Run measurement process
 
         end_time = time.perf_counter()
 
@@ -368,7 +394,7 @@ def main():
     print()
     print(f"Finished in {round(end_time - start_time, 2)} s.")
 
-    main()
+    main()  # Restart program at main menu
 
 
 if __name__ == '__main__':

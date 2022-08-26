@@ -5,7 +5,7 @@ max_window = [1400, 800]        # width, height (px), window size limits
 selection_zoom = 8              # Zoom ratio for selecting sample reference points
 use_colored_printing = False    # Set to True if terminal used supports colored printing
 
-prompt_focus_height = False     # Ask user to input focus height?
+prompt_focus_height = False     # Ask user to input focus height? (Not in use, requires new interpolation algorithm)
 check_capture_settings = False  # Check if images match calibration capture settings?
 gray_warning_limit = 1.0        # ref. gray min. dE for warning
 
@@ -38,6 +38,9 @@ exif_data = ('EXIF:XResolution', 'EXIF:YResolution', 'EXIF:ResolutionUnit', 'EXI
              'EXIF:ExifVersion', 'EXIF:DateTimeOriginal')
 
 main_directory = r'..\Images'                   # Main directory for images
+directories = (r'Calibration\Image Uniformity', r'Calibration\Correction Profiles', r'Calibration\Spectra',
+               r'Calibration\Calibration Images', r'Calibration\Reference Values', 'Corrected Images',
+               'Exported Images', 'Remote Capture', 'Imaging Edge')
 
 system_memory = 16000000                        # Bytes of system memory to utilize
 cpu_threads = multiprocessing.cpu_count() - 1   # Number of threads to utilize, 0 for no parallel processing
