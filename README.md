@@ -1,7 +1,6 @@
 # photographic-imaging
-NOTE: THESIS WILL BE LINKED IN THE NEAR FUTURE
 
-Calibration scripts made as part of my B.Sc. thesis "Photographic imaging of solar cells". Currently only verified support for Windows, but should also support other platforms with minor adjustments.
+Calibration scripts made as part of my B.Sc. thesis "[Photographic imaging of solar cells](http://urn.fi/URN:NBN:fi:aalto-202301031087)". Currently only verified support for Windows, but should also support other platforms with minor adjustments.
 
 # Installation
 - Copy script files into a "Python" folder under a main imaging directory. Running the program will automatically generate the rest of the required file structure.
