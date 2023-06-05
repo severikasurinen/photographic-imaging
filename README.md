@@ -11,22 +11,7 @@ Calibration scripts made as part of my B.Sc. thesis "[Photographic imaging of so
   - ProPhoto.icc (https://sites.google.com/site/chromasoft/icmprofiles -> ICCProfiles.zip, extract ProPhoto.icc)
 - Also copy the ICC Profiles into C:\Windows\System32\spool\drivers\color for use in other applications, such as Capture One and Adobe Photoshop.
 
-Run the following commands in PowerShell or Command Prompt:
-```powershell
-pip install colour-science
-```
-```powershell
-pip install matplotlib
-```
-```powershell
-pip install opencv-python
-```
-```powershell
-pip install natsort
-```
-```powershell
-pip install PyExifTool
-```
+Install python with inclusion to PATH. The scripts have been validated for Python 3.10, and this version is therefore recommended. After finishing the installation, start install.bat in the Python folder.
 
 # Using the scripts
 - Run the program by starting run.bat.
