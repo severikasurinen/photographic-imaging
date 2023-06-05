@@ -3,7 +3,7 @@
 Calibration scripts made as part of my B.Sc. thesis "[Photographic imaging of solar cells](http://urn.fi/URN:NBN:fi:aalto-202301031087)". Currently only verified support for Windows, but should also support other platforms with minor adjustments.
 
 # Installation
-- Install Python from https://www.python.org/downloads with inclusion to PATH. The scripts have been validated for Python 3.10, and this version is therefore recommended. After finishing the installation, start install.bat in the Python folder.
+- Install Python from https://www.python.org/downloads with inclusion to PATH. The scripts have been validated for Python 3.10, and this version is therefore recommended.
 - Copy script files into a "Python" folder under a main imaging directory. Run install.bat.
 - Download the ExifTool Windows Executable from https://exiftool.org and extract the exiftool.exe file into the Python folder.
 - Create the folder "ICC Profiles" inside the Python folder and download at least the following profiles (and rename to match the name) into the folder.
