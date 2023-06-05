@@ -1,3 +1,3 @@
 @echo on
-python main_script.py
+.\venv\Scripts\python.exe main_script.py
 PAUSE
