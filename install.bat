@@ -1,4 +1,5 @@
-@echo on
+@echo off
+Pushd "%~dp0"
 python -m pip install --upgrade pip
 python -m pip install --user virtualenv
 python -m venv venv
