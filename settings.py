@@ -3,6 +3,7 @@ import multiprocessing
 
 max_window = [1400, 800]        # width, height (px), window size limits
 selection_zoom = 8              # Zoom ratio for selecting sample reference points
+arrow_alpha = 0.5               # Transparency of measurement arrow
 use_colored_printing = False    # Set to True if terminal used supports colored printing
 
 prompt_focus_height = False     # Ask user to input focus height? (Not in use, requires new interpolation algorithm)

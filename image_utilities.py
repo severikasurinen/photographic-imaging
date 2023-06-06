@@ -9,7 +9,7 @@ import time
 from ast import literal_eval as make_tuple
 import xml.etree.ElementTree as ElementTree
 import xml.dom.minidom as dom
-import multiprocessing
+from multiprocessing import pool
 import natsort
 from itertools import repeat
 import numpy as np
@@ -20,13 +20,14 @@ import colour
 
 selected_points = ((-1, -1), (-1, -1))
 zoom_point = (-1, -1)
+arrow_width = 3
 
 
 # Image event function called upon clicking, etc. on window
 def image_event(event, x, y, flags, param):
-    global selected_points, zoom_point  # Use global selection variables
+    global selected_points, zoom_point, arrow_width  # Use global selection variables
 
-    if event == cv.EVENT_LBUTTONDOWN:   # Left mouse button pressed down
+    if event == cv.EVENT_LBUTTONDOWN:  # Left mouse button pressed down
         if (param[0] == settings.prompts['horizontal'] or param[0] == settings.prompts['line']
                 or param[0] == settings.prompts['crop']):
             if selected_points[1] == (-1, -1):  # 2nd selection point not set
@@ -43,7 +44,7 @@ def image_event(event, x, y, flags, param):
             zoom_point = (x, y)
             image_event(cv.EVENT_MOUSEMOVE, x, y, flags, param)
 
-    elif event == cv.EVENT_LBUTTONUP or event == cv.EVENT_RBUTTONUP:   # Left/right mouse button released
+    elif event == cv.EVENT_LBUTTONUP or event == cv.EVENT_RBUTTONUP:  # Left/right mouse button released
         if zoom_point != (-1, -1):
             # Adjust zoomed selection points
             sel_coord = np.sum((zoom_point, np.divide(np.subtract((x, y), zoom_point), settings.selection_zoom)),
@@ -55,7 +56,7 @@ def image_event(event, x, y, flags, param):
         # Is 2nd selection point closer than 1st?
         check_closer = math.dist(sel_coord, selected_points[1]) < math.dist(sel_coord, selected_points[0])
 
-        if event == cv.EVENT_RBUTTONUP:     # Right mouse button released
+        if event == cv.EVENT_RBUTTONUP:  # Right mouse button released
             sel_coord = (-1, -1)  # Remove selection
             if (param[0] == settings.prompts['horizontal'] or param[0] == settings.prompts['line']
                     or param[0] == settings.prompts['crop']):
@@ -78,20 +79,19 @@ def image_event(event, x, y, flags, param):
         markers = 0
         for i in range(2):
             if selected_points[i] != (-1, -1):
-                # Draw cross on selected point
-                cv.drawMarker(img_c[0], selected_points[i], (0, 0, main_script.max_val[img_c[1][0][1]]),
-                              cv.MARKER_TILTED_CROSS, 15, 2)
+                if param[0] != settings.prompts['line']:
+                    # Draw cross on selected point
+                    cv.drawMarker(img_c[0], selected_points[i], (0, 0, main_script.max_val[img_c[1][0][1]]),
+                                  cv.MARKER_TILTED_CROSS, 15, 2)
                 markers += 1
-        if markers == 2:    # both selection points exist
+        if markers == 2:  # both selection points exist
             if param[0] == settings.prompts['horizontal']:
                 # Draw line between points
                 cv.line(img_c[0], selected_points[0], selected_points[1],
                         (0, 0, main_script.max_val[img_c[1][0][1]]), 2)
             elif param[0] == settings.prompts['line']:
                 # Draw arrow from 1st to 2nd point
-                cv.arrowedLine(img_c[0], selected_points[0], selected_points[1],
-                               (0, 0, main_script.max_val[img_c[1][0][1]]), 2,
-                               tipLength=(25 / (math.dist(selected_points[0], selected_points[1]) + 1)))
+                img_c = image_manipulation.draw_arrow(img_c, selected_points, arrow_width)
             elif param[0] == settings.prompts['crop']:
                 # Draw cropping rectangle
                 cv.rectangle(img_c[0], selected_points[0], selected_points[1],
@@ -99,9 +99,9 @@ def image_event(event, x, y, flags, param):
 
         show_image(param[0], img_c, False)
 
-        zoom_point = (-1, -1)   # Clear zoom point
+        zoom_point = (-1, -1)  # Clear zoom point
 
-    elif event == cv.EVENT_MOUSEMOVE:   # Mouse position changed
+    elif event == cv.EVENT_MOUSEMOVE:  # Mouse position changed
         if (param[0] == settings.prompts['horizontal'] or param[0] == settings.prompts['line']
                 or param[0] == settings.prompts['crop']):
             img_c = (param[1][0].copy(), param[1][1])
@@ -111,16 +111,15 @@ def image_event(event, x, y, flags, param):
                     cv.line(img_c[0], selected_points[0], (x, y), (0, 0, main_script.max_val[img_c[1][0][1]] / 2), 2)
                 elif param[0] == settings.prompts['line']:
                     # Redraw arrow from 1st to 2nd point
-                    cv.arrowedLine(img_c[0], selected_points[0], (x, y),
-                                   (0, 0, main_script.max_val[img_c[1][0][1]] / 2), 2,
-                                   tipLength=(25 / (math.dist(selected_points[0], (x, y)) + 1)))
+                    img_c = image_manipulation.draw_arrow(img_c, (selected_points[0], (x, y)), arrow_width)
                 elif param[0] == settings.prompts['crop']:
                     # Redraw cropping rectangle
                     cv.rectangle(img_c[0], selected_points[0], (x, y), (0, 0, main_script.max_val[img_c[1][0][1]] / 2),
                                  2)
-                # Redraw selection crosses
-                cv.drawMarker(img_c[0], selected_points[0], (0, 0, main_script.max_val[img_c[1][0][1]]),
-                              cv.MARKER_TILTED_CROSS, 15, 2)
+                if param[0] != settings.prompts['line']:
+                    # Redraw selection crosses
+                    cv.drawMarker(img_c[0], selected_points[0], (0, 0, main_script.max_val[img_c[1][0][1]]),
+                                  cv.MARKER_TILTED_CROSS, 15, 2)
                 show_image(param[0], img_c, False)
 
         elif zoom_point != (-1, -1):
@@ -132,6 +131,16 @@ def image_event(event, x, y, flags, param):
             cv.drawMarker(img_c[0], zoom_coord, (0, 0, main_script.max_val[img_c[1][0][1]]),
                           cv.MARKER_TILTED_CROSS, 15, 2)
             show_image(param[0], img_c, False)
+    elif (event == cv.EVENT_MOUSEWHEEL and param[0] == settings.prompts['line']
+          and selected_points[0] != (-1, -1) and selected_points[1] != (-1, -1)):  # Scrolling in line selector
+        if flags == 7864320:
+            arrow_width += 2
+        elif flags == -7864320:
+            arrow_width = max(3, arrow_width - 2)
+
+        # Redraw arrow from 1st to 2nd point
+        img_c = image_manipulation.draw_arrow((param[1][0].copy(), param[1][1]), selected_points, arrow_width)
+        show_image(param[0], img_c, False)
 
 
 # Wait for key input
@@ -143,7 +152,7 @@ def wait_key(in_keys=('enter', 'escape', 'space')):  # Wait for any of given key
     while True:
         k = cv.waitKey(0)
         if any(k == key_dict[in_key] for in_key in in_keys):
-            return utilities.get_key(k, key_dict)   # Get key by input value
+            return utilities.get_key(k, key_dict)  # Get key by input value
 
 
 # Get path to given sample
@@ -160,7 +169,7 @@ def sample_path(file_name):
 # Image format: (ndarray, ((color space index, bit depth index), metadata)))
 def write_image(in_img, img_name, sub_folder, extension='.' + settings.output_extension,
                 show_format=False, convert=True):
-    img_path = os.path.join(settings.main_directory, sub_folder)    # Combine path
+    img_path = os.path.join(settings.main_directory, sub_folder)  # Combine path
     if not os.path.exists(img_path):
         os.makedirs(img_path)
 
@@ -201,7 +210,7 @@ def read_image(img_name, sub_folder='Exported Images', col_depth=-1, convert=Tru
         # Image not found
         return None
 
-    img = cv.imread(img_path, col_depth)    # Read in BGR format
+    img = cv.imread(img_path, col_depth)  # Read in BGR format
 
     metadata = [[settings.output_color_space, settings.output_depth], {}]  # Use output settings as default
     with exiftool.ExifToolHelper() as et:
@@ -255,12 +264,12 @@ def show_image(window_name, in_img, convert=True):
         # Convert to sRGB 8bit
         in_img = image_manipulation.convert_color(in_img, 'show')
     cv.imshow(window_name, in_img[0])
-    cv.setWindowProperty(window_name, cv.WND_PROP_TOPMOST, 1)   # Set as top window
+    cv.setWindowProperty(window_name, cv.WND_PROP_TOPMOST, 1)  # Set as top window
 
 
 # Write correction profile 3D LUT
 def write_profile(in_name, in_lut, in_gray, in_metadata, in_ref_data, in_sample_data, ref_grid):
-    profile_path = os.path.join(settings.main_directory, r'Calibration\Correction Profiles')    # Combine file path
+    profile_path = os.path.join(settings.main_directory, r'Calibration\Correction Profiles')  # Combine file path
     if not os.path.exists(profile_path):
         os.makedirs(profile_path)
 
@@ -381,7 +390,7 @@ def write_crop(ref_points, crop_angle=None, crop_corners=None, gray_labs=None):
         for i in range(len(ref_points)):
             prev_ref = ref.find(f"img[@name='{ref_points[i][0]}']")
             if not new_file and prev_ref is not None:
-                ref.remove(prev_ref)    # Remove previous data
+                ref.remove(prev_ref)  # Remove previous data
             ref_data = ElementTree.SubElement(ref, 'img')
             ref_data.attrib['name'] = ref_points[i][0]
             ref_data.text = str(ref_points[i][1])
@@ -398,7 +407,7 @@ def write_crop(ref_points, crop_angle=None, crop_corners=None, gray_labs=None):
             # Write/overwrite ref. gray values
             prev_gray = grays.find(f"gray[@measurement='{key}']")
             if not new_file and prev_gray is not None:
-                grays.remove(prev_gray)     # Remove previous data
+                grays.remove(prev_gray)  # Remove previous data
             gray_data = ElementTree.SubElement(grays, 'gray')
             gray_data.attrib['measurement'] = str(key)
             gray_data.text = str(gray_labs[key])
@@ -505,14 +514,14 @@ def measure_series(path, ref_name, mode, measurement_name):
     file_names = os.listdir(os.path.join(settings.main_directory, path))
     for file_name in file_names:
         if len(str(file_name).split('.')) <= 1 or str(file_name).split('.')[1] != settings.output_extension:
-            file_names.remove(file_name)    # Ignore folders
+            file_names.remove(file_name)  # Ignore folders
 
     file_names = natsort.natsorted(file_names)  # Sort files alphabetically
 
-    if mode == 0:   # Measure selected area average color, results in 2D data
+    if mode == 0:  # Measure selected area average color, results in 2D data
         measurement_name = 'area_' + measurement_name
 
-        roi = get_roi(ref_img)[1]   # Select measurement area
+        roi = get_roi(ref_img)[1]  # Select measurement area
 
         print()
         print("Measuring series", ref_name.split('_')[0], "color ...")
@@ -528,11 +537,11 @@ def measure_series(path, ref_name, mode, measurement_name):
         for i in range(len(file_names)):
             img = read_image(file_names[i], os.path.join(settings.main_directory, path))
             measurement_roi = get_roi(img, 1, in_roi=roi)
-            avg_lab = get_average_color(measurement_roi[0])     # Measure average color of selected area
+            avg_lab = get_average_color(measurement_roi[0])  # Measure average color of selected area
 
             # Add measured data to write list
-            series_data.append([file_names[i].split('.')[0],  # File name
-                                file_names[i].split('.')[0].split('_')[1],  # Measurement no.
+            series_data.append([str(file_names[i]).split('.')[0],  # File name
+                                str(file_names[i]).split('.')[0].split('_')[1],  # Measurement no.
                                 colour.delta_E(avg_lab, ref_lab, method='CIE 2000'),  # CIEDE2000
                                 avg_lab[0],  # L*
                                 avg_lab[1],  # a*
@@ -540,7 +549,7 @@ def measure_series(path, ref_name, mode, measurement_name):
                                 math.dist((0, 0), (avg_lab[1], avg_lab[2])),  # C*
                                 utilities.get_angle((0, 0), (avg_lab[1], avg_lab[2]), clamp=True)  # h°
                                 ])
-            x.append(file_names[i].split('.')[0].split('_')[1])
+            x.append(str(file_names[i]).split('.')[0].split('_')[1])
             y.append(utilities.get_angle((0, 0), (avg_lab[1], avg_lab[2]), clamp=True))
 
             # Draw selection rectangle on image
@@ -551,7 +560,8 @@ def measure_series(path, ref_name, mode, measurement_name):
 
             # Write image for selection reference
             write_image(img_a,
-                        file_names[i].split('.')[0].split('_')[0] + '_' + file_names[i].split('.')[0].split('_')[1],
+                        str(file_names[i]).split('.')[0].split('_')[0] + '_'
+                        + str(file_names[i]).split('.')[0].split('_')[1],
                         os.path.join(sample_path(file_names[i]), 'Measurements', measurement_name),
                         '_area' + '.' + settings.output_extension, True)
 
@@ -566,9 +576,9 @@ def measure_series(path, ref_name, mode, measurement_name):
         plt.ylabel('h°')
         plt.show()
 
-        data_name = file_names[0].split('.')[0].split('_')[0] + '_area_data'
+        data_name = str(file_names[0]).split('.')[0].split('_')[0] + '_area_data'
 
-    elif mode == 1:   # Measure pixel values along selected line, results in 3D data
+    elif mode == 1:  # Measure pixel values along selected line, results in 3D data
         measurement_name = 'line_' + measurement_name
 
         while True:
@@ -600,7 +610,7 @@ def measure_series(path, ref_name, mode, measurement_name):
                 # Use selected line
                 break
         cv.destroyWindow(prompt)
-        line_points = np.divide(selected_points, img_scale)     # Scale selection
+        line_points = np.divide(selected_points, img_scale)  # Scale selection
         selected_points = ((-1, -1), (-1, -1))  # Clear selection
 
         print()
@@ -611,25 +621,36 @@ def measure_series(path, ref_name, mode, measurement_name):
                        (round(line_points[1][0]), round(line_points[1][1])))
         line_pol = (round(math.dist(line_points[0], line_points[1])),
                     utilities.get_angle(line_points[0], line_points[1]))
+        range_vertical = True
+        if 45 < line_pol[1] < 135 or -135 < line_pol[1] < -45:
+            range_vertical = False
+
         # Measure ref. LAB
         ref_lab = image_manipulation.convert_color((ref_img[0][line_points[0][1]][line_points[0][0]], ref_img[1]),
                                                    'LAB')[0]
 
-        series_data = [('file', 'measurement', 'x', 'CIEDE2000', 'L*', 'a*', 'b*', 'C*', 'h°')]     # Data headers
+        series_data = [('file', 'measurement', 'x', 'CIEDE2000', 'L*', 'a*', 'b*', 'C*', 'h°')]  # Data headers
 
         est_data = [time.perf_counter(), 0]
         for i in range(len(file_names)):
             img = read_image(file_names[i], os.path.join(settings.main_directory, path))
 
-            series_data.append([file_names[i].split('.')[0],  # File name
-                                file_names[i].split('.')[0].split('_')[1],  # Measurement no.
+            series_data.append([str(file_names[i]).split('.')[0],  # File name
+                                str(file_names[i]).split('.')[0].split('_')[1],  # Measurement no.
                                 [], [], [], [], [], [], []])
-
             for x in range(line_pol[0] + 1):
                 # Measure each point along line
                 x_point = np.sum((line_points[0], cvt_point((x, line_pol[1]), -2)), axis=0)
-                x_point = (round(x_point[0]), round(x_point[1]))
-                x_lab = image_manipulation.convert_color((img[0][x_point[1]][x_point[0]], img[1]), 'LAB')[0]
+                sum_color = (0, 0, 0)
+                for j in range(round(arrow_width / img_scale)):
+                    offset = -int(round(arrow_width / img_scale) / 2) + j
+                    if range_vertical:
+                        offset_point = (round(x_point[0]), round(x_point[1] + offset))
+                    else:
+                        offset_point = (round(x_point[0] + offset), round(x_point[1]))
+                    sum_color += img[0][offset_point[1]][offset_point[0]]
+                x_lab = image_manipulation.convert_color((np.divide(sum_color, round(arrow_width / img_scale)),
+                                                          img[1]), 'LAB')[0]
 
                 series_data[1 + i][2].append(px_scale * x)  # x (dist. along line)
                 series_data[1 + i][3].append(colour.delta_E(ref_lab, x_lab, method='CIE 2000'))  # CIEDE 2000
@@ -647,24 +668,26 @@ def measure_series(path, ref_name, mode, measurement_name):
             plt.show()
 
             # Draw selected line on image
-            img_l = image_manipulation.scale_image(
-                (cv.arrowedLine(img[0], line_points[0], line_points[1],
-                                (0, 0, main_script.max_val[img[1][0][1]]), round(2 / img_scale),
-                                tipLength=(25 / math.dist(line_points[0], line_points[1]) / img_scale)),
-                 img[1]))[0]
-
+            line_alpha = 0.05
+            line_layer = img[0].copy()
+            cv.arrowedLine(line_layer, line_points[0], line_points[1], (0, 0, main_script.max_val[img[1][0][1]]),
+                           round((arrow_width - 1) / img_scale),
+                           tipLength=(25 / math.dist(line_points[0], line_points[1]) / img_scale))
+            img_l = image_manipulation.scale_image((cv.addWeighted(line_layer, line_alpha, img[0], 1 - line_alpha, 0),
+                                                    img[1]))[0]
             # Write image for selection reference
             write_image(img_l,
-                        file_names[i].split('.')[0].split('_')[0] + '_' + file_names[i].split('.')[0].split('_')[1],
+                        str(file_names[i]).split('.')[0].split('_')[0] + '_'
+                        + str(file_names[i]).split('.')[0].split('_')[1],
                         os.path.join(sample_path(file_names[i]), 'Measurements', measurement_name),
-                        '_line' + '.' + settings.output_extension, True)
+                        '_line' + '.' + settings.output_extension, True, True)
 
             est_data[1] += 1
             if est_data[1] == 1:
                 # Estimate total processing time based on first image
                 utilities.print_estimate(est_data[0], est_data[1] / len(file_names))
 
-        data_name = file_names[0].split('.')[0].split('_')[0] + '_line_data'
+        data_name = str(file_names[0]).split('.')[0].split('_')[0] + '_line_data'
     else:
         print("Invalid measuring mode.")
         return
@@ -683,11 +706,11 @@ def get_roi(in_img, mode=0, in_roi=(0, 0, 0, 0), show_format=False):
     out_roi = None
     key_pressed = None
 
-    if mode == 0:   # Select & output
+    if mode == 0:  # Select & output
         if show_format:
             img_s = in_img  # No conversion
         else:
-            img_s = image_manipulation.convert_color(in_img, 'show')    # Convert image to sRGB 8bit
+            img_s = image_manipulation.convert_color(in_img, 'show')  # Convert image to sRGB 8bit
         img_s, img_scale = image_manipulation.scale_image(img_s)
 
         if np.sum(in_roi) != 0:
@@ -792,13 +815,13 @@ def compare_settings(img_metadata, ref_metadata):
 def parallel_process(function, in_img, params, operations=settings.cpu_threads):
     if type(params[-1]) is int and 0 <= params[-1]:
         operations = params[-1]
-    split_img = np.array_split(in_img[0], operations)   # Split image for threads
+    split_img = np.array_split(in_img[0], operations)  # Split image for threads
     for i in range(len(split_img)):
-        split_img[i] = (split_img[i], in_img[1])    # Include metadata in split image
+        split_img[i] = (split_img[i], in_img[1])  # Include metadata in split image
 
     # Perform parallel processes
-    pool = multiprocessing.pool.ThreadPool()
-    pool_res = pool.starmap(function, zip(split_img, *[repeat(param) for param in params]))
+    thread_pool = pool.ThreadPool()
+    pool_res = thread_pool.starmap(function, zip(split_img, *[repeat(param) for param in params]))
 
     # Combine split images
     out_img = []

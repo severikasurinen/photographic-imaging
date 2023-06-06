@@ -25,7 +25,7 @@ def convert_color(in_cols, conversion, is_thread=False, operations=1):
 
         out_cols = []
         for i in range(len(split_cols)):
-            split_cols[i] = (split_cols[i], in_cols[1])     # Include metadata in split colors
+            split_cols[i] = (split_cols[i], in_cols[1])  # Include metadata in split colors
 
             if conversion == 'in':  # BGR(input) -> LAB(D50)
                 # BGR (0 - 2^depth-1) -> RGB (0 - 1)
@@ -44,7 +44,7 @@ def convert_color(in_cols, conversion, is_thread=False, operations=1):
 
                 out_cols.append(lab_vals)
 
-            elif conversion == 'adapt':     # LAB -> LAB(D50)
+            elif conversion == 'adapt':  # LAB -> LAB(D50)
                 # LAB (0 - 100, -100 - 100, -100 - 100) -> XYZ (0 - 1)
                 xyz_vals = colour.Lab_to_XYZ(split_cols[i][0], illuminant=colour.CCS_ILLUMINANTS[
                     'CIE 1931 2 Degree Standard Observer'][in_cols[1]])
@@ -67,7 +67,7 @@ def convert_color(in_cols, conversion, is_thread=False, operations=1):
                 xyz_vals = colour.Lab_to_XYZ(split_cols[i][0], illuminant=colour.CCS_ILLUMINANTS[
                     'CIE 1931 2 Degree Standard Observer']['D50'])
 
-                if conversion == 'out':     # LAB(D50) -> BGR(output)
+                if conversion == 'out':  # LAB(D50) -> BGR(output)
                     # XYZ D50 (0 - 1) -> RGB (0 - 1)
                     rgb_vals = main_script.color_model[settings.output_color_space].cctf_encoding(colour.XYZ_to_RGB(
                         xyz_vals,
@@ -97,7 +97,7 @@ def convert_color(in_cols, conversion, is_thread=False, operations=1):
 
                     out_cols.append(bgr_vals)
 
-                elif conversion == 'LAB':   # LAB(D50) -> LAB(output)
+                elif conversion == 'LAB':  # LAB(D50) -> LAB(output)
                     # XYZ D50 (0 - 1) -> XYZ out (0 - 1)
                     xyz_vals = colour.chromatic_adaptation(xyz_vals, colour.xy_to_XYZ(
                         colour.CCS_ILLUMINANTS['CIE 1931 2 Degree Standard Observer']['D50']),
@@ -112,7 +112,7 @@ def convert_color(in_cols, conversion, is_thread=False, operations=1):
 
                     out_cols.append(lab_vals)
 
-                elif conversion == 'RGB':   # LAB(D50) -> RGB(0.0-1.0 sRGB)
+                elif conversion == 'RGB':  # LAB(D50) -> RGB(0.0-1.0 sRGB)
                     # XYZ D50 (0 - 1) -> sRGB (0 - 1)
                     rgb_vals = main_script.color_model[0].cctf_encoding(colour.XYZ_to_RGB(
                         xyz_vals,
@@ -124,7 +124,7 @@ def convert_color(in_cols, conversion, is_thread=False, operations=1):
 
                     out_cols.append(rgb_vals)
 
-                elif conversion == 'xy':    # LAB(D50) -> xy
+                elif conversion == 'xy':  # LAB(D50) -> xy
                     # XYZ D50 (0 - 1) -> xy (0 - 1)
                     xy_vals = colour.XYZ_to_xy(xyz_vals, illuminant=colour.CCS_ILLUMINANTS[
                         'CIE 1931 2 Degree Standard Observer']['D50'])
@@ -134,7 +134,7 @@ def convert_color(in_cols, conversion, is_thread=False, operations=1):
                 else:
                     utilities.print_color(f"Invalid color conversion '{conversion}'!", 'error')
 
-        out_cols = (np.concatenate(out_cols), in_cols[1])   # Combine split colors
+        out_cols = (np.concatenate(out_cols), in_cols[1])  # Combine split colors
 
         return out_cols
     else:
@@ -154,7 +154,7 @@ def adjust_color(in_img, in_lut, is_thread=False, gray_diff=(0, 0, 0), operation
 
             out_img = []
             for i in range(len(split_img)):
-                split_img[i] = (split_img[i], in_img[1])    # Include metadata in split image
+                split_img[i] = (split_img[i], in_img[1])  # Include metadata in split image
 
                 # Convert image to flat format
                 start_col = split_img[i][0]
@@ -190,7 +190,7 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
         path = rf"Corrected Images\{sample_name.split('-')[0]}\{sample_name}"
     else:
         path = rf"Corrected Images\{sample_name}"
-        for sub_path in os.listdir(os.path.join(settings.main_directory, path)):    # Crop each sample in directory
+        for sub_path in os.listdir(os.path.join(settings.main_directory, path)):  # Crop each sample in directory
             if len(sub_path.split('.')) == 1:
                 crop_samples(sub_path, adjust, ref_gray)
         return
@@ -198,7 +198,7 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
     print()
     print("Cropping", sample_name)
 
-    file_names = natsort.natsorted(os.listdir(os.path.join(settings.main_directory, path)))     # Get files in order
+    file_names = natsort.natsorted(os.listdir(os.path.join(settings.main_directory, path)))  # Get files in order
 
     if not ref_gray:  # If cropping reference gray, no need to handle reference data
         ref_crop_data = image_utilities.read_crop(file_names[0])
@@ -257,7 +257,7 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
     write_dict = {}
     for i in range(len(file_names)):
         if len(file_names[i].split('.')) == 1:
-            continue    # Skip folders
+            continue  # Skip folders
 
         # Check if crop data exists
         crop_exists = os.path.exists(os.path.join(rf'{os.path.join(settings.main_directory, path)}\Cropped',
@@ -302,7 +302,7 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
                 print("Discarding crop data.")
                 return
 
-            ref_point_list.append((file_names[i].split('.')[0], ref_points))    # Save ref. points
+            ref_point_list.append((file_names[i].split('.')[0], ref_points))  # Save ref. points
 
             # Calculate angle and scale based on ref. points
             ref_angle = (utilities.get_angle(start_points[0], start_points[1])
@@ -316,16 +316,16 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
                 new_ref = image_utilities.cvt_point((ref_polar[0] * ref_scale, ref_polar[1] + ref_angle), -2)
                 ref_translate = np.sum((ref_translate, np.subtract(start_points[o], new_ref)), axis=0)
 
-            ref_translate = np.divide(ref_translate, 2)     # Get average translation
+            ref_translate = np.divide(ref_translate, 2)  # Get average translation
 
             # Apply rotation, scaling, translation
             matched_img = translate_image(scale_image(rotate_image(img, ref_angle), ref_scale)[0],
                                           ref_translate)
 
             img_c = rotate_image(matched_img, ref_crop[0])  # Apply crop rotation
-        else:   # No need to save cropping data for ref. grays
+        else:  # No need to save cropping data for ref. grays
             if len(ref_point_list) == 0:
-                ref_point_list.append([file_names[i].split('.')[0]])    # Save ref. gray names
+                ref_point_list.append([file_names[i].split('.')[0]])  # Save ref. gray names
 
             img = image_utilities.read_image(file_names[i], os.path.join(settings.main_directory, path), convert=False)
 
@@ -337,7 +337,7 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
                        image_utilities.cvt_point(ref_crop[1][1], -1, img_c[0].shape))
         img_c = get_image_range(img_c, ((crop_corner[0][0], crop_corner[1][0]), (crop_corner[0][1], crop_corner[1][1])))
 
-        write_dict[file_names[i]] = img_c   # Add image to writing dictionary
+        write_dict[file_names[i]] = img_c  # Add image to writing dictionary
 
         if ref_gray:
             # Write average color
@@ -367,7 +367,7 @@ def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), 
         # Only convert to 8bit
         in_img = (np.interp(in_img[0], (0, main_script.max_val[in_img[1][0][1]]), (0, main_script.max_val[0])
                             ).astype(main_script.bit_type[0]), in_img[1])
-    if mode == 0:   # Crop first image
+    if mode == 0:  # Crop first image
         img_c, img_scale = scale_image(in_img)
         if ref_points[0] != ((0, 0), (0, 0)):
             # Previous rotation data exists -> Apply
@@ -429,7 +429,7 @@ def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), 
             # Show previous crop rectangle, select crop
             roi, key_pressed = image_utilities.get_roi(img_c, in_roi=roi, show_format=True)[1:3]
         else:
-            roi, key_pressed = image_utilities.get_roi(img_c, show_format=True)[1:3]    # Select crop
+            roi, key_pressed = image_utilities.get_roi(img_c, show_format=True)[1:3]  # Select crop
 
         cv.destroyAllWindows()
         if key_pressed == 'escape':
@@ -462,7 +462,7 @@ def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), 
 
         return ref_angle, ref_corners
 
-    elif mode == 1:     # Match crop
+    elif mode == 1:  # Match crop
         img_c, img_scale = scale_image(in_img)  # Scale to max window size
         if np.sum(ref_points) != 0:
             # Scale existing ref. points
@@ -552,7 +552,7 @@ def translate_image(in_img, offset):
 
 # Scale image by multiplier, or to max window size if left empty
 def scale_image(in_img, size_multiplier=-1.0):
-    img_s = (in_img[0].copy(), in_img[1])   # Don't edit original image
+    img_s = (in_img[0].copy(), in_img[1])  # Don't edit original image
     if size_multiplier == -1.0:
         # Calculate maximum size multiplier
         img_scale = min(settings.max_window[0] / img_s[0].shape[1],
@@ -582,6 +582,15 @@ def zoom_image(in_img, zoom_factor=settings.selection_zoom, zoom_point=(-1, -1))
                            round(in_img[0].shape[1] / 2 + in_img[0].shape[1] / zoom_factor / 2)],
                            in_img[1]), zoom_factor)[0]
     return out_img
+
+
+# Draw transparent arrow on image
+def draw_arrow(in_img, coords, arrow_width):
+    line_layer = in_img[0].copy()
+    cv.arrowedLine(line_layer, coords[0], coords[1],
+                   (0, 0, main_script.max_val[in_img[1][0][1]] / 2), arrow_width,
+                   tipLength=(25 / (math.dist(coords[0], coords[1]) + 1)))
+    return (cv.addWeighted(line_layer, settings.arrow_alpha, in_img[0], 1 - settings.arrow_alpha, 0), in_img[1])
 
 
 # Rotate image by given angle (in mathematically positive direction = counter-clockwise)
