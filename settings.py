@@ -47,8 +47,11 @@ system_memory = 16000000                        # Bytes of system memory to util
 cpu_threads = multiprocessing.cpu_count() - 1   # Number of threads to utilize, 0 for no parallel processing
 
 # Window prompts
-prompts = {'horizontal': "Drag horizontal line, then press ENTER.", 'crop': "Select crop, then press ENTER.",
-           'ref': "Select reference points, then press ENTER.", 'line': "Drag line to measure, then press ENTER."}
+prompts = {'horizontal': "Drag horizontal line, then press ENTER.",
+           'crop': "Select crop, then press ENTER.",
+           'ref': "Select reference points, then press ENTER.",
+           'line': "Drag line to measure, then press ENTER."
+                   "You can adjust the width of the measured line using the mouse wheel."}
 
 # Console print color list
 print_colors = {'error': '\033[91m', 'green': '\033[92m', 'warning': '\033[93m', 'blue': '\033[94m', 'end': '\033[0m'}
