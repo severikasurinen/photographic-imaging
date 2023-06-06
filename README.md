@@ -11,6 +11,7 @@ Calibration scripts made as part of my B.Sc. thesis "[Photographic imaging of so
   - Adobe.icc (https://www.adobe.com/support/downloads/iccprofiles/icc_eula_win_end.html -> Accept, Extract RGB -> AdobeRGB1998.icc)
   - ProPhoto.icc (https://sites.google.com/site/chromasoft/icmprofiles -> ICCProfiles.zip, extract ProPhoto.icc)
 - Also copy the ICC Profiles into C:\Windows\System32\spool\drivers\color for use in other applications, such as Capture One and Adobe Photoshop.
+- Change options in settings.py as required, keeping in mind that changing settings related to image processing may result in incorrect processing. The most important settings to check are the max_window, output_illuminant, output_color_space, output_depth, output_extension, main_directory, and system_memory.
 
 # Using the scripts
 - Start the program by running run.bat.
