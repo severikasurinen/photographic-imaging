@@ -145,7 +145,7 @@ def image_event(event, x, y, flags, param):
 
 # Wait for key input
 def wait_key(in_keys=('enter', 'escape', 'space')):  # Wait for any of given keys
-    key_dict = {'enter': 13, 'escape': 27, 'space': 32}
+    key_dict = {'enter': 13, 'escape': 27, 'space': 32, 'a': 97}
 
     if type(in_keys) is str:
         in_keys = tuple(in_keys)
@@ -153,6 +153,11 @@ def wait_key(in_keys=('enter', 'escape', 'space')):  # Wait for any of given key
         k = cv.waitKey(0)
         if any(k == key_dict[in_key] for in_key in in_keys):
             return utilities.get_key(k, key_dict)  # Get key by input value
+        else:
+            if k == key_dict['a']:
+                image_manipulation.set_all = True
+            else:
+                image_manipulation.set_all = False
 
 
 # Get path to given sample
@@ -209,7 +214,6 @@ def read_image(img_name, sub_folder='Exported Images', col_depth=-1, convert=Tru
     if str.strip(img_name) == '' or os.path.exists(img_path) is False:
         # Image not found
         return None
-
     img = cv.imread(img_path, col_depth)  # Read in BGR format
 
     metadata = [[settings.output_color_space, settings.output_depth], {}]  # Use output settings as default
@@ -508,7 +512,7 @@ def measure_series(path, ref_name, mode, measurement_name):
     global selected_points
 
     # Read dE ref. image
-    ref_img = read_image(ref_name + '.' + settings.output_extension, os.path.join(settings.main_directory, path))
+    ref_img = read_image(ref_name + '.' + settings.output_extension, path)
 
     # List files in sample directory
     file_names = os.listdir(os.path.join(settings.main_directory, path))
@@ -535,7 +539,7 @@ def measure_series(path, ref_name, mode, measurement_name):
         # Measure each image of sample
         est_data = [time.perf_counter(), 0]
         for i in range(len(file_names)):
-            img = read_image(file_names[i], os.path.join(settings.main_directory, path))
+            img = read_image(file_names[i], path)
             measurement_roi = get_roi(img, 1, in_roi=roi)
             avg_lab = get_average_color(measurement_roi[0])  # Measure average color of selected area
 
@@ -633,7 +637,7 @@ def measure_series(path, ref_name, mode, measurement_name):
 
         est_data = [time.perf_counter(), 0]
         for i in range(len(file_names)):
-            img = read_image(file_names[i], os.path.join(settings.main_directory, path))
+            img = read_image(file_names[i], path)
 
             series_data.append([str(file_names[i]).split('.')[0],  # File name
                                 str(file_names[i]).split('.')[0].split('_')[1],  # Measurement no.

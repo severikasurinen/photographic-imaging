@@ -50,7 +50,9 @@ cpu_threads = multiprocessing.cpu_count() - 1   # Number of threads to utilize, 
 prompts = {'horizontal': "Drag horizontal line, then press ENTER.",
            'crop': "Select crop, then press ENTER.",
            'ref': "Select reference points, then press ENTER.",
-           'line': "Drag line to measure, then press ENTER."
+           'ref-timelapse': "Select reference points, then press ENTER. "
+                            "To use the same ref. points for rest of images, press A prior to ENTER.",
+           'line': "Drag line to measure, then press ENTER. "
                    "You can adjust the width of the measured line using the mouse wheel."}
 
 # Console print color list

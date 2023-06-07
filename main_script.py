@@ -110,13 +110,30 @@ def main():
                 os.makedirs(os.path.join(settings.main_directory, path))
 
             measurement_gray = image_utilities.read_crop(file_names[i].split('-')[0] + "-gray", True)
-            if measurement_gray is None or int(file_names[i].split('.')[0].split('_')[1]) not in measurement_gray:
+            if measurement_gray is None:
                 ref_diff = (0, 0, 0)
                 utilities.print_color("Warning: Ref. gray not found!", 'warning')
                 print()
             else:
                 # Read ref. gray values
-                measurement_gray = measurement_gray[int(file_names[i].split('.')[0].split('_')[1])]
+                if int(file_names[i].split('.')[0].split('_')[1]) in measurement_gray:
+                    measurement_gray = measurement_gray[int(file_names[i].split('.')[0].split('_')[1])]
+                else:
+                    # Read the earliest ref. gray values after measurement or latest ref. gray values if not numbered
+                    latest_gray = list(measurement_gray.keys())[-1]
+                    for j in range(len(measurement_gray)):
+                        latest_gray = list(measurement_gray.keys())[j]
+                        try:
+                            if int(list(measurement_gray.keys())[j]) > int(file_names[i].split('.')[0].split('_')[1]):
+                                break
+                        except ValueError:
+                            latest_gray = list(measurement_gray.keys())[-1]
+                            break
+
+                    measurement_gray = measurement_gray[latest_gray]
+                    utilities.print_color("Warning: Ref. gray not found!" + " Using ref. gray from measurement '"
+                                          + str(latest_gray) + "'.", 'warning')
+                    print()
                 ref_diff = np.subtract(profile_data[1], measurement_gray)
                 ref_ciede = colour.delta_E(profile_data[1], measurement_gray, method='CIE 2000').round(2)
                 if ref_ciede >= settings.gray_warning_limit:

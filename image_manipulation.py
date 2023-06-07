@@ -11,6 +11,9 @@ import colour
 import natsort
 
 
+set_all = False     # Set rest of ref. points based on current selection?
+
+
 # Conversion: 'in': BGR(input)->LAB(D50) 'out': LAB(D50)->BGR(output) 'show': LAB(D50)->BGR(0-255 8bit sRGB)
 #             'adapt': LAB->LAB(D50) 'LAB': LAB(D50)->LAB(output) 'RGB': LAB(D50)->RGB(0.0-1.0 sRGB) 'xy': LAB(D50)->xy
 def convert_color(in_cols, conversion, is_thread=False, operations=1):
@@ -183,6 +186,11 @@ def adjust_color(in_img, in_lut, is_thread=False, gray_diff=(0, 0, 0), operation
 
 # Crop sample images
 def crop_samples(sample_name, adjust=False, ref_gray=False):
+    global set_all
+
+    if adjust:
+        set_all = False
+
     # Set sample path
     if len(sample_name.split('-')) > 1:
         if sample_name.split('-')[1].split('_')[0] == 'gray':
@@ -199,6 +207,9 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
     print("Cropping", sample_name)
 
     file_names = natsort.natsorted(os.listdir(os.path.join(settings.main_directory, path)))  # Get files in order
+    for file_name in file_names:
+        if len(file_name.split('.')) == 1:
+            file_names.remove(file_name)    # Remove folders from list
 
     if not ref_gray:  # If cropping reference gray, no need to handle reference data
         ref_crop_data = image_utilities.read_crop(file_names[0])
@@ -215,7 +226,7 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
         if not crop_exists or adjust:
             img = None
             while img is None:  # Wait for successful read
-                img = image_utilities.read_image(start_file, os.path.join(settings.main_directory, path), convert=False)
+                img = image_utilities.read_image(start_file, path, convert=False)
             if adjust and ref_crop_data is not None and crop_exists:
                 # Start with previous crop data
                 ref_crop = match_crop(img, 0, (ref_crop_data[2], ref_crop_data[3]), convert=False)
@@ -228,7 +239,7 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
             if adjust and ref_crop_data is not None and crop_exists:
                 start_points = match_crop(img, 1, ref_crop_data[1][1], convert=False)  # Start with previous crop data
             else:
-                start_points = match_crop(img, 1, convert=False)
+                start_points = match_crop(img, 1, convert=False, first=True)
             if start_points is None:
                 utilities.print_color("Discarding crop data.", 'warning')
                 return
@@ -236,7 +247,7 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
         else:
             # Use existing data
             start_file = ref_crop_data[1][0] + '.' + settings.output_extension
-            img = image_utilities.read_image(start_file, os.path.join(settings.main_directory, path), convert=False)
+            img = image_utilities.read_image(start_file, path, convert=False)
             img_scale = scale_image(img)[1]
             ref_crop = (ref_crop_data[2], ref_crop_data[3])
             start_points = ref_crop_data[1][1]
@@ -253,12 +264,11 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
         start_file = None
         ref_crop = None
 
+    if set_all:
+        print("Setting rest of series ref. points based on first.")
     img_refs = []
     write_dict = {}
     for i in range(len(file_names)):
-        if len(file_names[i].split('.')) == 1:
-            continue  # Skip folders
-
         # Check if crop data exists
         crop_exists = os.path.exists(os.path.join(rf'{os.path.join(settings.main_directory, path)}\Cropped',
                                                   file_names[i].split('.')[0] + '_cropped.'
@@ -287,10 +297,9 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
                 image_utilities.show_image("Reference points", scale_image((np.concatenate(img_refs), img[1]))[0],
                                            False)
 
-            img = image_utilities.read_image(file_names[i], os.path.join(settings.main_directory, path),
+            img = image_utilities.read_image(file_names[i], path,
                                              convert=False)
-            if file_names[i] != start_file:
-
+            if file_names[i] != start_file and not set_all:
                 if data_exists:
                     ref_points = match_crop(img, 1, ref_crop_data[0][file_names[i].split('.')[0]], convert=False)
                 else:
@@ -327,7 +336,7 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
             if len(ref_point_list) == 0:
                 ref_point_list.append([file_names[i].split('.')[0]])  # Save ref. gray names
 
-            img = image_utilities.read_image(file_names[i], os.path.join(settings.main_directory, path), convert=False)
+            img = image_utilities.read_image(file_names[i], path, convert=False)
 
             ref_crop = match_crop(img, 0, convert=False)
             img_c = rotate_image(img, ref_crop[0])  # Apply crop rotation
@@ -344,6 +353,7 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
             gray_refs[file_names[i].split('.')[0].split('_')[1]] = tuple(elem for elem in
                                                                          image_utilities
                                                                          .get_average_color(convert_color(img_c, 'in')))
+    set_all = False
 
     if len(write_dict) > 0:
         image_utilities.write_crop(ref_point_list, ref_crop[0], ref_crop[1], gray_refs)
@@ -359,7 +369,7 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
 
 
 # Mode 0: Crop first image, 1: Match crop
-def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), convert=True):
+def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), convert=True, first=False):
     if convert:
         # Convert to sRGB 8bit
         in_img = convert_color(in_img, 'show')
@@ -473,7 +483,12 @@ def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), 
                                                 image_utilities.cvt_point(ref_points[1], -1,
                                                                           np.divide(img_c[0].shape, img_scale))])
         # Select reference points
-        prompt = settings.prompts['ref']
+        global set_all
+
+        if first:
+            prompt = settings.prompts['ref-timelapse']
+        else:
+            prompt = settings.prompts['ref']
         key_pressed = None
 
         # Only accept reference with both selection points
@@ -508,6 +523,9 @@ def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), 
                 ref_points = (ref_points[1], ref_points[0])
 
             image_utilities.selected_points = ((-1, -1), (-1, -1))  # Clear selection
+
+        if not first:
+            set_all = False     # Make sure set_all can't be adjusted
 
         # Round ref. point values
         return [round(ref_point) for ref_point in ref_points[0]], [round(ref_point) for ref_point in ref_points[1]]
