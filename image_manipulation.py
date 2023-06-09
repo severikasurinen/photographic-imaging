@@ -425,9 +425,10 @@ def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), 
 
                 ref_angle = utilities.get_angle(image_utilities.selected_points[0],
                                                 image_utilities.selected_points[1]) + ref_rotated
-            image_utilities.selected_points = ((-1, -1), (-1, -1))  # Clear selection
 
             img_c = rotate_image(img_c, ref_angle)  # Apply final rotation
+
+        image_utilities.selected_points = ((-1, -1), (-1, -1))  # Clear selection
 
         if ref_points[1] != ((0, 0), (0, 0)):
             # Get existing crop data
@@ -522,7 +523,7 @@ def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), 
             if ref_points[0][0] > ref_points[1][0]:
                 ref_points = (ref_points[1], ref_points[0])
 
-            image_utilities.selected_points = ((-1, -1), (-1, -1))  # Clear selection
+        image_utilities.selected_points = ((-1, -1), (-1, -1))  # Clear selection
 
         if not first:
             set_all = False     # Make sure set_all can't be adjusted
@@ -608,7 +609,7 @@ def draw_arrow(in_img, coords, arrow_width):
     cv.arrowedLine(line_layer, coords[0], coords[1],
                    (0, 0, main_script.max_val[in_img[1][0][1]] / 2), arrow_width,
                    tipLength=(25 / (math.dist(coords[0], coords[1]) + 1)))
-    return (cv.addWeighted(line_layer, settings.arrow_alpha, in_img[0], 1 - settings.arrow_alpha, 0), in_img[1])
+    return cv.addWeighted(line_layer, settings.arrow_alpha, in_img[0], 1 - settings.arrow_alpha, 0), in_img[1]
 
 
 # Rotate image by given angle (in mathematically positive direction = counter-clockwise)
