@@ -666,9 +666,10 @@ def measure_series(path, ref_name, mode, measurement_name):
 
             # Plot h° along line
             plt.plot(series_data[1 + i][2], series_data[1 + i][8], 'rx')
+            plt.title('Measurement ' + str(i + 1))
             plt.xlabel('x (mm)')
             plt.ylabel('h°')
-            # plt.ylim((0, 50))     # Set y-axis range
+            plt.ylim((0, 360))     # Set y-axis range
             plt.show()
 
             # Draw selected line on image

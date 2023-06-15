@@ -8,7 +8,8 @@ use_colored_printing = False    # Set to True if terminal used supports colored 
 
 prompt_focus_height = False     # Ask user to input focus height? (Not in use, requires new interpolation algorithm)
 check_capture_settings = False  # Check if images match calibration capture settings?
-gray_warning_limit = 1.0        # ref. gray min. dE for warning
+save_gray_images = False        # Keep ref. gray images?
+gray_warning_limit = 1.5        # ref. gray min. dE for warning
 
 input_extension = 'tif'         # Input file extension
 
@@ -25,6 +26,7 @@ input_lab_domain = ((0, -100, -100), (100, 100, 100))
 correction_epsilon = 1.0                            # Epsilon: smooth -> sharp curves
 lut_size = 128                                      # Create 3D LUT of dimensions (lut_size x lut_size x lut_size x 3)
 
+prompt_margin_utilization = False                   # Ask user if safety margins should be used? If not, will be used.
 ref_margins = (0.15, 0.1)                           # Safety margins for reference gray images (x, y)
 
 color_spaces = ('sRGB', 'Adobe', 'ProPhoto')    # Supported color spaces

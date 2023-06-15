@@ -10,13 +10,13 @@ import cv2 as cv
 import colour
 import natsort
 
-
-set_all = False     # Set rest of ref. points based on current selection?
+set_all = False  # Set rest of ref. points based on current selection?
 
 
 # Conversion: 'in': BGR(input)->LAB(D50) 'out': LAB(D50)->BGR(output) 'show': LAB(D50)->BGR(0-255 8bit sRGB)
 #             'adapt': LAB->LAB(D50) 'LAB': LAB(D50)->LAB(output) 'RGB': LAB(D50)->RGB(0.0-1.0 sRGB) 'xy': LAB(D50)->xy
-def convert_color(in_cols, conversion, is_thread=False, operations=1):
+#             'gray-adapt': Adapt LAB based on ref. grays
+def convert_color(in_cols, conversion, is_thread=False, operations=1, gray_refs=((0, 0, 0), None)):
     # If already thread or no need for threading, directly compute
     if is_thread or settings.cpu_threads == 0 or max(in_cols[0].shape) < settings.cpu_threads:
         # Split data based on memory usage
@@ -134,6 +134,23 @@ def convert_color(in_cols, conversion, is_thread=False, operations=1):
 
                     out_cols.append(xy_vals)
 
+                elif conversion == 'gray-adapt':  # Adapt LAB based on ref. grays
+                    xyz_refs = []
+                    # Convert ref. grays to XYZ
+                    for j in range(2):
+                        # LAB D50 (0 - 100, -100 - 100, -100 - 100) -> XYZ D50 (0 - 1)
+                        xyz_refs.append(colour.Lab_to_XYZ(gray_refs[j], illuminant=colour.CCS_ILLUMINANTS[
+                            'CIE 1931 2 Degree Standard Observer']['D50']))
+
+                    # Adapt XYZ with ref. grays
+                    xyz_vals = colour.chromatic_adaptation(xyz_vals, xyz_refs[1], xyz_refs[0])
+
+                    # XYZ D50 (0 - 1) -> LAB D50 (0 - 100, -100 - 100, -100 - 100)
+                    lab_vals = colour.XYZ_to_Lab(xyz_vals, illuminant=colour.CCS_ILLUMINANTS[
+                        'CIE 1931 2 Degree Standard Observer']['D50'])
+
+                    out_cols.append(lab_vals)
+
                 else:
                     utilities.print_color(f"Invalid color conversion '{conversion}'!", 'error')
 
@@ -143,12 +160,12 @@ def convert_color(in_cols, conversion, is_thread=False, operations=1):
     else:
         # Perform multithreaded operations
         out_cols = image_utilities.parallel_process(convert_color, in_cols,
-                                                    (conversion, True, settings.cpu_threads))
+                                                    (conversion, True, settings.cpu_threads, gray_refs))
         return out_cols
 
 
 # Correct image with LUT
-def adjust_color(in_img, in_lut, is_thread=False, gray_diff=(0, 0, 0), operations=1):
+def adjust_color(in_img, in_lut, is_thread=False, gray_refs=((0, 0, 0), None), operations=1):
     if is_thread or settings.cpu_threads == 0 or max(in_img[0].shape) < settings.cpu_threads:
         # Split image by memory usage
         if len(in_img[0].shape) > 1:
@@ -166,26 +183,30 @@ def adjust_color(in_img, in_lut, is_thread=False, gray_diff=(0, 0, 0), operation
                                   np.take(start_col, 2, axis=2).flatten()))
 
                 # Apply LUT and gray card difference
-                fit_col = in_lut.apply(lab_i.T).reshape(start_col.shape[0], start_col.shape[1], 3) + gray_diff
+                fit_col = in_lut.apply(lab_i.T).reshape(start_col.shape[0], start_col.shape[1], 3)
+                if gray_refs[1] is not None:
+                    fit_col = convert_color((fit_col, in_img[1]), 'gray-adapt', gray_refs=gray_refs)[0]
 
                 out_img.append(fit_col)
 
             out_img = (np.concatenate(out_img), in_img[1])  # Combine split image
         else:
             # Apply LUT and gray card difference
-            fit_col = in_lut.apply(in_img[0]) + gray_diff
+            fit_col = in_lut.apply(in_img[0])
+            if gray_refs[1] is not None:
+                fit_col = convert_color((fit_col, in_img[1]), 'gray-adapt', gray_refs=gray_refs)[0]
             out_img = (fit_col, in_img[1])
 
         return out_img
     else:
         # Perform multithreaded operation
         out_img = image_utilities.parallel_process(adjust_color, in_img,
-                                                   (in_lut, True, gray_diff, settings.cpu_threads))
+                                                   (in_lut, True, gray_refs, settings.cpu_threads))
         return out_img
 
 
 # Crop sample images
-def crop_samples(sample_name, adjust=False, ref_gray=False):
+def crop_samples(sample_name, adjust=False, ref_gray=False, crop_settings=None):
     global set_all
 
     if adjust:
@@ -199,7 +220,7 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
     else:
         path = rf"Corrected Images\{sample_name}"
         for sub_path in os.listdir(os.path.join(settings.main_directory, path)):  # Crop each sample in directory
-            if len(sub_path.split('.')) == 1:
+            if len(sub_path.split('.')) == 1 and sub_path != 'Measurements':
                 crop_samples(sub_path, adjust, ref_gray)
         return
 
@@ -207,11 +228,8 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
     print("Cropping", sample_name)
 
     file_names = natsort.natsorted(os.listdir(os.path.join(settings.main_directory, path)))  # Get files in order
-    for file_name in file_names:
-        if len(file_name.split('.')) == 1:
-            file_names.remove(file_name)    # Remove folders from list
-
-    if not ref_gray:  # If cropping reference gray, no need to handle reference data
+    file_names = [file_name for file_name in file_names if len(file_name.split('.')) > 1]
+    if not ref_gray:  # If cropping reference gray, no need to read reference data
         ref_crop_data = image_utilities.read_crop(file_names[0])
         if ref_crop_data is not None:
             start_file = ref_crop_data[1][0] + '.' + settings.output_extension
@@ -268,6 +286,7 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
         print("Setting rest of series ref. points based on first.")
     img_refs = []
     write_dict = {}
+    img_c = None
     for i in range(len(file_names)):
         # Check if crop data exists
         crop_exists = os.path.exists(os.path.join(rf'{os.path.join(settings.main_directory, path)}\Cropped',
@@ -328,23 +347,29 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
             ref_translate = np.divide(ref_translate, 2)  # Get average translation
 
             # Apply rotation, scaling, translation
-            matched_img = translate_image(scale_image(rotate_image(img, ref_angle), ref_scale)[0],
-                                          ref_translate)
-
-            img_c = rotate_image(matched_img, ref_crop[0])  # Apply crop rotation
+            img = translate_image(scale_image(rotate_image(img, ref_angle), ref_scale)[0],
+                                  ref_translate)
         else:  # No need to save cropping data for ref. grays
             if len(ref_point_list) == 0:
                 ref_point_list.append([file_names[i].split('.')[0]])  # Save ref. gray names
 
             img = image_utilities.read_image(file_names[i], path, convert=False)
+            if crop_settings is not None:  # Apply previous rotation and crop
+                img_c = get_image_range(rotate_image(img, crop_settings[0]), crop_settings[1])
+                ref_crop = crop_settings
+            else:
+                ref_crop = match_crop(img, 0, convert=False)
 
-            ref_crop = match_crop(img, 0, convert=False)
-            img_c = rotate_image(img, ref_crop[0])  # Apply crop rotation
+        if crop_settings is None:
+            new_crop_settings = [None, None]
+            new_crop_settings[0] = ref_crop[0]
+            img_c = rotate_image(img, new_crop_settings[0])  # Apply crop rotation
 
-        # Apply crop
-        crop_corner = (image_utilities.cvt_point(ref_crop[1][0], -1, img_c[0].shape),
-                       image_utilities.cvt_point(ref_crop[1][1], -1, img_c[0].shape))
-        img_c = get_image_range(img_c, ((crop_corner[0][0], crop_corner[1][0]), (crop_corner[0][1], crop_corner[1][1])))
+            # Apply crop
+            crop_corner = (image_utilities.cvt_point(ref_crop[1][0], -1, img_c[0].shape),
+                           image_utilities.cvt_point(ref_crop[1][1], -1, img_c[0].shape))
+            new_crop_settings[1] = ((crop_corner[0][0], crop_corner[1][0]), (crop_corner[0][1], crop_corner[1][1]))
+            img_c = get_image_range(img_c, new_crop_settings[1])
 
         write_dict[file_names[i]] = img_c  # Add image to writing dictionary
 
@@ -358,14 +383,18 @@ def crop_samples(sample_name, adjust=False, ref_gray=False):
     if len(write_dict) > 0:
         image_utilities.write_crop(ref_point_list, ref_crop[0], ref_crop[1], gray_refs)
         print("Writing cropped images ...")
-        for key in write_dict:
-            # Write images in dictionary
-            image_utilities.write_image(write_dict[key], key.split('.')[0], rf'{path}\Cropped',
-                                        '_cropped.' + settings.output_extension, convert=False)
+        if not gray_refs or settings.save_gray_images:
+            for key in write_dict:
+                # Write images in dictionary
+                image_utilities.write_image(write_dict[key], key.split('.')[0], rf'{path}\Cropped',
+                                            '_cropped.' + settings.output_extension, convert=False)
     else:
         print("No new data written.")
 
     cv.destroyAllWindows()
+
+    if ref_gray:
+        return new_crop_settings
 
 
 # Mode 0: Crop first image, 1: Match crop
@@ -438,7 +467,10 @@ def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), 
                    abs(ref_points[1][1][1] - ref_points[1][0][1]) * img_scale)
 
             # Show previous crop rectangle, select crop
-            roi, key_pressed = image_utilities.get_roi(img_c, in_roi=roi, show_format=True)[1:3]
+            try:
+                roi, key_pressed = image_utilities.get_roi(img_c, in_roi=roi, show_format=True)[1:3]
+            except TypeError:
+                key_pressed = 'escape'
         else:
             roi, key_pressed = image_utilities.get_roi(img_c, show_format=True)[1:3]  # Select crop
 
@@ -526,7 +558,7 @@ def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), 
         image_utilities.selected_points = ((-1, -1), (-1, -1))  # Clear selection
 
         if not first:
-            set_all = False     # Make sure set_all can't be adjusted
+            set_all = False  # Make sure set_all can't be adjusted
 
         # Round ref. point values
         return [round(ref_point) for ref_point in ref_points[0]], [round(ref_point) for ref_point in ref_points[1]]

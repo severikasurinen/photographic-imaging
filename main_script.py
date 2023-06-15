@@ -6,7 +6,6 @@ import calibration
 
 import os
 import time
-import numpy as np
 import cv2 as cv  # Import OpenCV library
 import colour  # Import Colour Science library
 import natsort
@@ -20,32 +19,35 @@ bit_type = ('uint8', 'uint16')
 
 def main():
     print()
-    utilities.create_directories(settings.main_directory)   # Create imaging system directory structure
+    utilities.create_directories(settings.main_directory)  # Create imaging system directory structure
     start_time = 0
     end_time = 0
 
     # Start in main menu
     while True:
-        script_mode = input("Script mode (0: Apply corrections, 1: Calibrate, 2: Crop images, 3: Measure series color"
-                            ", ENTER: Exit): ")
+        script_mode = input("Script mode (0: Apply corrections, 1: Rename carousel timelapse files, 2: Crop images, "
+                            "3: Measure series color, 4: Calibrate, ENTER: Exit): ")
         if script_mode is not None:
             script_mode = script_mode.strip()
         if script_mode == '':
             print("Closing program.")
             return
 
-        script_mode = int(script_mode)
-        if 0 <= script_mode <= 3:
-            # Invalid input
-            break
-        else:
-            print("Invalid mode.")
+        try:
+            script_mode = int(script_mode)
+            if 0 <= script_mode <= 4:
+                break
+            else:
+                print("Invalid mode.")
+
+        except ValueError:
+            print("Invalid input.")
 
     if script_mode == 0:  # Apply corrections
         while True:
             if settings.prompt_focus_height:
                 # Ask user for focus height
-                focus_input = input("Height - focus height (mm): ")
+                focus_input = input("Height - focus height (mm) (leave empty for default): ")
                 if focus_input is not None:
                     focus_input = focus_input.strip()
             else:
@@ -63,19 +65,21 @@ def main():
 
         # Sort files alphabetically
         file_names = natsort.natsorted(os.listdir(os.path.join(settings.main_directory, 'Exported Images')))
-        gray_files = []
         study_names = []
+        gray_files = []
         print("Correcting gray references ...")
         print()
-        use_margins = None
+
         for file_name in file_names:
             if len(file_name.split('-')) > 1 and file_name.split('-')[1].split('_')[0] == "gray":
                 # File name corresponds to ref. gray
-                gray_files.append(file_name)
                 if study_names.count(file_name.split('_')[0]) < 1:
                     study_names.append(file_name.split('_')[0])
-                if use_margins is None:
+
+                if settings.prompt_margin_utilization:
                     use_margins = utilities.yes_no_prompt("Use safety margins?")
+                else:
+                    use_margins = True
                 if use_margins:
                     # Get area in safety margins
                     img_gray = image_utilities.get_safe_area(image_utilities.read_image(file_name))
@@ -87,15 +91,25 @@ def main():
                 image_utilities.write_image(image_manipulation.adjust_color(img_gray, profile_data[0]),
                                             file_name.split('.')[0], image_utilities.sample_path(file_name),
                                             '_cc.' + settings.output_extension)
+                gray_files.append(os.path.join(image_utilities.sample_path(file_name),
+                                               file_name.split('.')[0] + '_cc.' + settings.output_extension))
                 os.remove(os.path.join(settings.main_directory, 'Exported Images', file_name))  # Remove original
 
         # Crop ref. grays
         for study_name in study_names:
             image_manipulation.crop_samples(study_name, ref_gray=True)
 
+        if not settings.save_gray_images:
+            # Remove ref. gray images
+            for gray_file in gray_files:
+                os.remove(os.path.join(settings.main_directory, gray_file))
+
         file_names = natsort.natsorted(os.listdir(os.path.join(settings.main_directory, 'Exported Images')))
         sample_names = []
         est_data = [time.perf_counter(), 0]
+        image_part_crop_settings = None
+        use_image_part = None
+        last_sample = None
         for i in range(len(file_names)):
             img = image_utilities.read_image(file_names[i])
 
@@ -110,9 +124,50 @@ def main():
                 os.makedirs(os.path.join(settings.main_directory, path))
 
             measurement_gray = image_utilities.read_crop(file_names[i].split('-')[0] + "-gray", True)
+            if measurement_gray is None or int(file_names[i].split('.')[0].split('_')[1]) not in measurement_gray:
+
+                if last_sample != file_names[i].split('_')[0]:  # Reset settings when moving to next sample
+                    image_part_crop_settings = None
+                    use_image_part = None
+                if image_part_crop_settings is None:
+                    utilities.print_color("Warning: Ref. gray not found!", 'warning')
+                    if use_image_part is None:
+                        use_image_part = utilities.yes_no_prompt("Use part of image for ref. grays?")
+                if image_part_crop_settings is not None or (use_image_part is not None and use_image_part):
+                    if settings.prompt_margin_utilization:
+                        use_margins = utilities.yes_no_prompt("Use safety margins?")
+                    else:
+                        use_margins = True
+                    if use_margins:
+                        # Get area in safety margins
+                        img_gray = image_utilities.get_safe_area(img)
+                    else:
+                        # Use full image
+                        img_gray = img.copy()
+
+                    # Correct ref. gray, write result
+                    gray_file_name = file_names[i].split('-')[0] + '-gray_' + file_names[i].split('_')[1]
+                    image_utilities.write_image(image_manipulation.adjust_color(img_gray, profile_data[0]),
+                                                gray_file_name.split('.')[0],
+                                                image_utilities.sample_path(gray_file_name),
+                                                '_cc.' + settings.output_extension)
+                    gray_file = os.path.join(image_utilities.sample_path(gray_file_name),
+                                             gray_file_name.split('.')[0] + '_cc.' + settings.output_extension)
+
+                    crop_settings = image_manipulation.crop_samples(gray_file_name.split('_')[0], ref_gray=True,
+                                                                    crop_settings=image_part_crop_settings)
+                    if image_part_crop_settings is None and utilities.yes_no_prompt(
+                            "Use similar crop for rest of sample images with no ref. gray found?"):
+                        image_part_crop_settings = crop_settings
+
+                    if not settings.save_gray_images:
+                        os.remove(os.path.join(settings.main_directory, gray_file))  # Remove ref. gray image
+
+                print()
+
+            measurement_gray = image_utilities.read_crop(file_names[i].split('-')[0] + "-gray", True)
             if measurement_gray is None:
-                ref_diff = (0, 0, 0)
-                utilities.print_color("Warning: Ref. gray not found!", 'warning')
+                utilities.print_color("Warning: No ref. gray correction used!", 'warning')
                 print()
             else:
                 # Read ref. gray values
@@ -134,20 +189,22 @@ def main():
                     utilities.print_color("Warning: Ref. gray not found!" + " Using ref. gray from measurement '"
                                           + str(latest_gray) + "'.", 'warning')
                     print()
-                ref_diff = np.subtract(profile_data[1], measurement_gray)
                 ref_ciede = colour.delta_E(profile_data[1], measurement_gray, method='CIE 2000').round(2)
                 if ref_ciede >= settings.gray_warning_limit:
                     utilities.print_color(f"Warning: Ref. gray dE is {ref_ciede}!", 'warning')
                 else:
                     utilities.print_color(f"Ref. gray dE OK, {ref_ciede}.", 'green')
+                print()
 
             # Write corrected image
-            image_utilities.write_image(image_manipulation.adjust_color(img, profile_data[0], gray_diff=ref_diff),
+            image_utilities.write_image(image_manipulation.adjust_color(img, profile_data[0],
+                                                                        gray_refs=(profile_data[1], measurement_gray)),
                                         file_names[i].split('.')[0], path, '_cc.' + settings.output_extension)
             os.remove(os.path.join(settings.main_directory, 'Exported Images', file_names[i]))  # Remove original
 
             if sample_names.count(file_names[i].split('_')[0]) == 0:
                 sample_names.append(file_names[i].split('_')[0])
+            last_sample = file_names[i].split('_')[0]
 
             est_data[1] += 1
             if est_data[1] == 1:
@@ -162,7 +219,132 @@ def main():
 
         end_time = time.perf_counter()
 
-    elif script_mode == 1:  # Calibration
+    elif script_mode == 1:  # Rename carousel timelapse files
+        while True:
+            # Prompt for sample name
+            sample_name = input("File name of any sample in timelapse (with file extension): ")
+            if sample_name.strip() != '' and os.path.exists(os.path.join(settings.main_directory,
+                                                                         rf"Exported Images\{sample_name}")):
+                break
+            else:
+                print("Invalid sample.")
+        print()
+
+        while True:
+            cells = input("Number of cells in timelapse: ")
+            if cells is not None:
+                cells = cells.strip()
+
+            try:
+                cells = int(cells)
+                if 0 <= cells <= 8:
+                    break
+                else:
+                    print("Invalid number.")
+
+            except ValueError:
+                print("Invalid input.")
+        print()
+        start_time = time.perf_counter()
+
+        cell_i = 1
+        measurement_i = 0
+        for file_name in natsort.natsorted(os.listdir(os.path.join(settings.main_directory, "Exported Images"))):
+            if file_name.split('_')[0] == sample_name.split('_')[0]:
+                new_file_name = (file_name.split('-')[0] + '-' + str(cell_i) + '_' + str(measurement_i)
+                                 + '.' + file_name.split('.')[1])
+                os.rename(os.path.join(settings.main_directory, rf"Exported Images\{file_name}"),
+                          os.path.join(settings.main_directory, rf"Exported Images\{new_file_name}"))
+                cell_i += 1
+                if cell_i > cells:
+                    cell_i = 1
+                    measurement_i += 1
+
+        end_time = time.perf_counter()
+
+    elif script_mode == 2:  # Crop images
+        while True:
+            # Prompt for sample name
+            sample_name = input("File name of sample (with file extension): ")
+            if len(sample_name.split('_')[0].split('-')) > 1:
+                path = rf"Corrected Images\{sample_name.split('_')[0].split('-')[0]}\{sample_name}"
+            else:
+                path = rf"Corrected Images\{sample_name}"
+            if sample_name.strip() != '' and os.path.exists(os.path.join(settings.main_directory, path)):
+                break
+            else:
+                print("Invalid sample.")
+        print()
+
+        adjusting = utilities.yes_no_prompt("Adjust crop?")  # If not, images with existing crop data will be skipped
+
+        start_time = time.perf_counter()
+        image_manipulation.crop_samples(sample_name, adjusting)  # Crop sample image(s)
+
+        end_time = time.perf_counter()
+
+    elif script_mode == 3:  # Measure series color
+        while True:
+            # Prompt for measurement type
+            measure_mode = input("Measuring mode (0: Measure area, 1: Measure along line, ENTER: Main menu): ")
+            if measure_mode is not None:
+                measure_mode = measure_mode.strip()
+            if measure_mode == '':
+                # Return to main menu
+                main()
+                return
+
+            measure_mode = int(measure_mode)
+            if 0 <= measure_mode <= 1:
+                break
+            else:
+                print("Invalid mode.")
+
+        while True:
+            # Prompt for sample name
+            img_name = input("File name of sample (with file extension): ")
+            if len(img_name.split('_')[0].split('-')) > 1:
+                path = rf"Corrected Images\{img_name.split('_')[0].split('-')[0]}\{img_name}"
+            else:
+                path = rf"Corrected Images\{img_name.split('_')[0]}"
+            if img_name.strip() != '' and os.path.exists(os.path.join(settings.main_directory, path + r"\Cropped")):
+                path = path + r"\Cropped"
+                break
+            elif img_name.strip() != '' and os.path.exists(os.path.join(settings.main_directory, path)):
+                break
+            else:
+                print("Invalid sample.")
+
+        while True:
+            # Prompt for image to use as dE reference
+            ref_name = input("Reference image name: ")
+            if ref_name == '':
+                for file_name in natsort.natsorted(os.listdir(os.path.join(settings.main_directory, path))):
+                    if len(file_name.split('.')) > 1 and file_name.split('.')[1] == settings.output_extension:
+                        ref_name = file_name.split('.')[0]
+                        print("Reference image:", ref_name)
+                        break
+
+            if os.path.exists(os.path.join(settings.main_directory, path, ref_name + '.' + settings.output_extension)):
+                break
+            else:
+                print("Invalid image.")
+
+        while True:
+            # Prompt for name of measurement
+            measurement_name = input("Color measurement name: ")
+            if measurement_name.strip() != '' and measurement_name == measurement_name.strip():
+                break
+            else:
+                print("Invalid name. Don't include spaces.")
+
+        start_time = time.perf_counter()
+
+        image_utilities.measure_series(path, ref_name, measure_mode, measurement_name)  # Run measurement process
+
+        end_time = time.perf_counter()
+
+    elif script_mode == 4:  # Calibration
         while True:
             calib_mode = input("Measuring mode (0: Create calibration profile, 1: Measure image uniformity"
                                ", ENTER: Main menu): ")
@@ -178,13 +360,14 @@ def main():
             else:
                 print("Invalid mode.")
 
-        if calib_mode == 0:     # Create calibration profile
+        if calib_mode == 0:  # Create calibration profile
+            # TODO: Automated target image combining
             while True:
                 # Prompt for color target type
                 ref_name = settings.reference_types[0]
                 ref_data = None
                 if len(settings.reference_types) > 1:
-                    ref_name = input("Reference type: ")
+                    ref_name = input("Reference type (leave empty for default): ")
                     if ref_name.strip() == '':
                         # Set default target
                         ref_name = 'it87'
@@ -217,10 +400,10 @@ def main():
                 utilities.print_color("Warning: Ref. gray not found!", 'warning')
                 print()
             else:
-                if utilities.yes_no_prompt("Use safety margins?"):
+                if not settings.prompt_margin_utilization or utilities.yes_no_prompt("Use safety margins?"):
                     gray_img = image_utilities.get_safe_area(gray_img)  # Crop to safety margins
-                ref_crop = image_manipulation.match_crop(gray_img, 0)   # Prompt for crop
-                lt_corner = image_utilities.cvt_point(ref_crop[1][0], -1, gray_img[0].shape)    # Upper left corner
+                ref_crop = image_manipulation.match_crop(gray_img, 0)  # Prompt for crop
+                lt_corner = image_utilities.cvt_point(ref_crop[1][0], -1, gray_img[0].shape)  # Upper left corner
 
                 # Rotate and crop as selected
                 gray_img = image_utilities.get_roi(image_manipulation.rotate_image(gray_img, ref_crop[0]), 1,
@@ -234,10 +417,10 @@ def main():
             target_c = image_manipulation.crop_target(img, image_utilities.read_image(
                 ref_name + '.jpg', r'Calibration\Reference Values'), ref_data[0][0])
 
-            correction_lut = calibration.color_calibration(target_c, ref_data)[0]   # Create 3D LUT
+            correction_lut = calibration.color_calibration(target_c, ref_data)[0]  # Create 3D LUT
 
             print()
-            target_a = image_manipulation.adjust_color(target_c, correction_lut)    # Correct color target
+            target_a = image_manipulation.adjust_color(target_c, correction_lut)  # Correct color target
 
             # Show corrected color target and get accuracy
             fit_data, sample_data = calibration.color_calibration(target_a, ref_data, True)[1:3]
@@ -304,7 +487,7 @@ def main():
             start_time = time.perf_counter()
 
             if use_margins:
-                img = image_utilities.get_safe_area(img)    # Crop to safety margins
+                img = image_utilities.get_safe_area(img)  # Crop to safety margins
             img_uniformity = calibration.image_uniformity(image_utilities.get_roi(img)[0])
 
             image_utilities.show_image("Image uniformity", image_manipulation.scale_image(img_uniformity)[0],
@@ -321,88 +504,6 @@ def main():
                 print("Uniformity image saved.")
             else:
                 print("Discarding uniformity image.")
-
-    elif script_mode == 2:  # Crop images
-        while True:
-            # Prompt for sample name
-            sample_name = input("Sample name: ")
-            if len(sample_name.split('_')[0].split('-')) > 1:
-                path = rf"Corrected Images\{sample_name.split('_')[0].split('-')[0]}\{sample_name}"
-            else:
-                path = rf"Corrected Images\{sample_name}"
-            if os.path.exists(os.path.join(settings.main_directory, path)):
-                break
-            else:
-                print("Invalid sample.")
-
-        adjusting = utilities.yes_no_prompt("Adjust crop?")     # If not, images with existing crop data will be skipped
-
-        start_time = time.perf_counter()
-
-        image_manipulation.crop_samples(sample_name, adjusting)     # Crop sample image(s)
-
-        end_time = time.perf_counter()
-
-    elif script_mode == 3:  # Measure series color
-        while True:
-            # Prompt for measurement type
-            measure_mode = input("Measuring mode (0: Measure area, 1: Measure along line, ENTER: Main menu): ")
-            if measure_mode is not None:
-                measure_mode = measure_mode.strip()
-            if measure_mode == '':
-                # Return to main menu
-                main()
-                return
-
-            measure_mode = int(measure_mode)
-            if 0 <= measure_mode <= 1:
-                break
-            else:
-                print("Invalid mode.")
-
-        while True:
-            # Prompt for sample name
-            img_name = input("Sample name: ")
-            if len(img_name.split('_')[0].split('-')) > 1:
-                path = rf"Corrected Images\{img_name.split('_')[0].split('-')[0]}\{img_name}"
-            else:
-                path = rf"Corrected Images\{img_name.split('_')[0]}"
-            if img_name.strip() != '' and os.path.exists(os.path.join(settings.main_directory, path + r"\Cropped")):
-                path = path + r"\Cropped"
-                break
-            elif img_name.strip() != '' and os.path.exists(os.path.join(settings.main_directory, path)):
-                break
-            else:
-                print("Invalid sample.")
-
-        while True:
-            # Prompt for image to use as dE reference
-            ref_name = input("Reference image name: ")
-            if ref_name == '':
-                for file_name in natsort.natsorted(os.listdir(os.path.join(settings.main_directory, path))):
-                    if len(file_name.split('.')) > 1 and file_name.split('.')[1] == settings.output_extension:
-                        ref_name = file_name.split('.')[0]
-                        print("Reference image:", ref_name)
-                        break
-
-            if os.path.exists(os.path.join(settings.main_directory, path, ref_name + '.' + settings.output_extension)):
-                break
-            else:
-                print("Invalid image.")
-
-        while True:
-            # Prompt for name of measurement
-            measurement_name = input("Color measurement name: ")
-            if measurement_name.strip() != '' and measurement_name == measurement_name.strip():
-                break
-            else:
-                print("Invalid name. Don't include spaces.")
-
-        start_time = time.perf_counter()
-
-        image_utilities.measure_series(path, ref_name, measure_mode, measurement_name)  # Run measurement process
-
-        end_time = time.perf_counter()
 
     else:
         print("Invalid script mode.")
