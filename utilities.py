@@ -7,6 +7,7 @@ import math
 import csv
 import colour
 import scipy.interpolate as scint
+import natsort
 from itertools import repeat
 import numpy as np
 from matplotlib import pyplot as plt
@@ -19,6 +20,19 @@ def create_directories(main_dir):
         path = os.path.join(main_dir, folder)
         if not os.path.exists(path):
             os.makedirs(path)
+
+
+# List files in given directory
+def get_files(sub_path, match_extension=None):
+    file_names = natsort.natsorted(os.listdir(os.path.join(settings.main_directory, sub_path)))  # Get files in order
+
+    if match_extension is None:
+        # Ignore folders
+        return [file_name for file_name in file_names if len(str(file_name).split('.')) > 1]
+    else:
+        # Ignore folders and check for given extension
+        return [file_name for file_name in file_names
+                if len(str(file_name).split('.')) > 1 and str(file_name).split('.')[1] == match_extension]
 
 
 # Colored print to console

@@ -8,7 +8,6 @@ import math
 import numpy as np
 import cv2 as cv
 import colour
-import natsort
 
 set_all = False  # Set rest of ref. points based on current selection?
 
@@ -227,8 +226,7 @@ def crop_samples(sample_name, adjust=False, ref_gray=False, crop_settings=None):
     print()
     print("Cropping", sample_name)
 
-    file_names = natsort.natsorted(os.listdir(os.path.join(settings.main_directory, path)))  # Get files in order
-    file_names = [file_name for file_name in file_names if len(file_name.split('.')) > 1]
+    file_names = utilities.get_files(path, match_extension=settings.output_extension)  # Get files in order
     if not ref_gray:  # If cropping reference gray, no need to read reference data
         ref_crop_data = image_utilities.read_crop(file_names[0])
         if ref_crop_data is not None:

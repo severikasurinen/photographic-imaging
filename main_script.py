@@ -8,7 +8,6 @@ import os
 import time
 import cv2 as cv  # Import OpenCV library
 import colour  # Import Colour Science library
-import natsort
 
 max_val = (pow(2, 8) - 1, pow(2, 16) - 1)  # 8bit: 0-255 - 16bit: 0-65635
 # Color models corresponding to color spaces in settings.py
@@ -64,7 +63,7 @@ def main():
         start_time = time.perf_counter()
 
         # Sort files alphabetically
-        file_names = natsort.natsorted(os.listdir(os.path.join(settings.main_directory, 'Exported Images')))
+        file_names = utilities.get_files('Exported Images', match_extension=settings.input_extension)
         study_names = []
         gray_files = []
         print("Correcting gray references ...")
@@ -104,7 +103,7 @@ def main():
             for gray_file in gray_files:
                 os.remove(os.path.join(settings.main_directory, gray_file))
 
-        file_names = natsort.natsorted(os.listdir(os.path.join(settings.main_directory, 'Exported Images')))
+        file_names = utilities.get_files('Exported Images', match_extension=settings.input_extension)
         sample_names = []
         est_data = [time.perf_counter(), 0]
         image_part_crop_settings = None
@@ -249,7 +248,7 @@ def main():
 
         cell_i = 1
         measurement_i = 0
-        for file_name in natsort.natsorted(os.listdir(os.path.join(settings.main_directory, "Exported Images"))):
+        for file_name in utilities.get_files("Exported Images", match_extension=settings.input_extension):
             if file_name.split('_')[0] == sample_name.split('_')[0]:
                 new_file_name = (file_name.split('-')[0] + '-' + str(cell_i) + '_' + str(measurement_i)
                                  + '.' + file_name.split('.')[1])
@@ -317,13 +316,10 @@ def main():
 
         while True:
             # Prompt for image to use as dE reference
-            ref_name = input("Reference image name: ")
+            ref_name = input("Reference image name (leave empty for first in series): ")
             if ref_name == '':
-                for file_name in natsort.natsorted(os.listdir(os.path.join(settings.main_directory, path))):
-                    if len(file_name.split('.')) > 1 and file_name.split('.')[1] == settings.output_extension:
-                        ref_name = file_name.split('.')[0]
-                        print("Reference image:", ref_name)
-                        break
+                ref_name = utilities.get_files(path, match_extension=settings.output_extension)[0].split('.')[0]
+                print("Reference image:", ref_name)
 
             if os.path.exists(os.path.join(settings.main_directory, path, ref_name + '.' + settings.output_extension)):
                 break
@@ -382,8 +378,10 @@ def main():
                 focus_height = input("Height - focus height (mm): ")
                 if focus_height is not None:
                     focus_height = focus_height.strip()
-                img = image_utilities.read_image('calib_' + focus_height + '.' + settings.input_extension,
+                img = image_utilities.read_image('calib-' + ref_name + '_' + focus_height + '.'
+                                                 + settings.input_extension,
                                                  r'Calibration\Calibration Images')
+
                 if img is not None:
                     break
                 else:

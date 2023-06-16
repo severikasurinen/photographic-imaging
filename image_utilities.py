@@ -10,7 +10,6 @@ from ast import literal_eval as make_tuple
 import xml.etree.ElementTree as ElementTree
 import xml.dom.minidom as dom
 from multiprocessing import pool
-import natsort
 from itertools import repeat
 import numpy as np
 import cv2 as cv
@@ -515,12 +514,7 @@ def measure_series(path, ref_name, mode, measurement_name):
     ref_img = read_image(ref_name + '.' + settings.output_extension, path)
 
     # List files in sample directory
-    file_names = os.listdir(os.path.join(settings.main_directory, path))
-    for file_name in file_names:
-        if len(str(file_name).split('.')) <= 1 or str(file_name).split('.')[1] != settings.output_extension:
-            file_names.remove(file_name)  # Ignore folders
-
-    file_names = natsort.natsorted(file_names)  # Sort files alphabetically
+    file_names = utilities.get_files(path, match_extension=settings.output_extension)
 
     if mode == 0:  # Measure selected area average color, results in 2D data
         measurement_name = 'area_' + measurement_name
