@@ -22,8 +22,8 @@ zoom_point = (-1, -1)
 arrow_width = 3
 
 
-# Image event function called upon clicking, etc. on window
 def image_event(event, x, y, flags, param):
+    """Image event function called upon clicking, etc. on window"""
     global selected_points, zoom_point, arrow_width  # Use global selection variables
 
     if event == cv.EVENT_LBUTTONDOWN:  # Left mouse button pressed down
@@ -142,8 +142,8 @@ def image_event(event, x, y, flags, param):
         show_image(param[0], img_c, False)
 
 
-# Wait for key input
 def wait_key(in_keys=('enter', 'escape', 'space')):  # Wait for any of given keys
+    """Wait for key input"""
     key_dict = {'enter': 13, 'escape': 27, 'space': 32, 'a': 97}
 
     if type(in_keys) is str:
@@ -159,8 +159,8 @@ def wait_key(in_keys=('enter', 'escape', 'space')):  # Wait for any of given key
                 image_manipulation.set_all = False
 
 
-# Get path to given sample
 def sample_path(file_name):
+    """Get path to given sample"""
     if len(file_name.split('_')[0].split('-')) > 1:
         path = rf"Corrected Images\{file_name.split('_')[0].split('-')[0]}\{file_name.split('_')[0]}"
     else:
@@ -169,10 +169,11 @@ def sample_path(file_name):
     return path
 
 
-# Write image file
-# Image format: (ndarray, ((color space index, bit depth index), metadata)))
 def write_image(in_img, img_name, sub_folder, extension='.' + settings.output_extension,
                 show_format=False, convert=True):
+    """Write image file
+
+    Image format: (ndarray, ((color space index, bit depth index), metadata)))"""
     img_path = os.path.join(settings.main_directory, sub_folder)  # Combine path
     if not os.path.exists(img_path):
         os.makedirs(img_path)
@@ -206,10 +207,14 @@ def write_image(in_img, img_name, sub_folder, extension='.' + settings.output_ex
         os.remove(os.path.join(img_path, img_name + extension + "_original"))
 
 
-# Read image file
-# Image format: (ndarray, ((color space index, bit depth index), metadata)))
-def read_image(img_name, sub_folder='Exported Images', col_depth=-1, convert=True):
-    img_path = os.path.join(settings.main_directory, sub_folder, img_name)  # Combine file path
+def read_image(img_name, sub_folder='Exported Images', col_depth=-1, convert=True, absolute_path=False):
+    """Read image file
+
+    Image format: (ndarray, ((color space index, bit depth index), metadata)))"""
+    if absolute_path:
+        img_path = os.path.join(sub_folder, img_name)  # Combine file path
+    else:
+        img_path = os.path.join(settings.main_directory, sub_folder, img_name)  # Combine file path
     if str.strip(img_name) == '' or os.path.exists(img_path) is False:
         # Image not found
         return None
@@ -261,8 +266,8 @@ def read_image(img_name, sub_folder='Exported Images', col_depth=-1, convert=Tru
     return out_img
 
 
-# Show image in window
 def show_image(window_name, in_img, convert=True):
+    """Show image in window"""
     if convert:
         # Convert to sRGB 8bit
         in_img = image_manipulation.convert_color(in_img, 'show')
@@ -270,8 +275,8 @@ def show_image(window_name, in_img, convert=True):
     cv.setWindowProperty(window_name, cv.WND_PROP_TOPMOST, 1)  # Set as top window
 
 
-# Write correction profile 3D LUT
 def write_profile(in_name, in_lut, in_gray, in_metadata, in_ref_data, in_sample_data, ref_grid):
+    """Write correction profile 3D LUT"""
     profile_path = os.path.join(settings.main_directory, r'Calibration\Correction Profiles')  # Combine file path
     if not os.path.exists(profile_path):
         os.makedirs(profile_path)
@@ -312,8 +317,8 @@ def write_profile(in_name, in_lut, in_gray, in_metadata, in_ref_data, in_sample_
     print(f"Profile '{in_name}' saved.")
 
 
-# Read calibration profile based on focus height
 def read_profile(in_height):  # input height as string
+    """Read calibration profile based on focus height"""
     try:
         if in_height.strip() == '':
             in_height = 10000  # Default to the highest correction profile, usually most accurate
@@ -350,8 +355,8 @@ def read_profile(in_height):  # input height as string
     return out_lut, gray_lab, metadata
 
 
-# Write sample crop data
 def write_crop(ref_points, crop_angle=None, crop_corners=None, gray_labs=None):
+    """Write sample crop data"""
     # Combine file path
     crop_path = os.path.join(rf"{settings.main_directory}\Corrected Images",
                              rf"{ref_points[0][0].split('-')[0]}\{ref_points[0][0].split('_')[0]}\Cropped")
@@ -425,8 +430,8 @@ def write_crop(ref_points, crop_angle=None, crop_corners=None, gray_labs=None):
     print(ref_points[0][0].split('_')[0], f'({crop_writes})', 'crop data written.')
 
 
-# Read sample crop data
 def read_crop(in_name, ref_gray=False):
+    """Read sample crop data"""
     # Combine file path
     crop_path = rf"{settings.main_directory}\Corrected Images\{in_name.split('-')[0]}\{in_name.split('_')[0]}\Cropped"
 
@@ -466,13 +471,11 @@ def read_crop(in_name, ref_gray=False):
         return ref_points, start_points, crop_angle, crop_corners
 
 
-# Read color target data
 def read_reference(ref_name):
+    """Read color target data"""
     try:
         # Read target data .xml file
-        root = ElementTree.parse(os.path.join(settings.main_directory, r'Calibration\Reference Values',
-                                              ref_name + '.xml')
-                                 ).getroot()
+        root = ElementTree.parse(os.path.join('Reference Values', ref_name + '.xml')).getroot()
         print(f"Read reference '{ref_name}' values.")
     except FileNotFoundError:
         # Target data not found
@@ -506,8 +509,8 @@ def read_reference(ref_name):
     return ref_info, ref_values
 
 
-# Measure series color, mode 0: area, 1: line
 def measure_series(path, ref_name, mode, measurement_name):
+    """Measure series color, mode 0: area, 1: line"""
     global selected_points
 
     # Read dE ref. image
@@ -696,9 +699,10 @@ def measure_series(path, ref_name, mode, measurement_name):
                         os.path.join(sample_path(file_names[0]), 'Measurements', measurement_name))
 
 
-# Get image ROI (selected area)
-# Mode 0: Select & output, 1: Apply & output
 def get_roi(in_img, mode=0, in_roi=(0, 0, 0, 0), show_format=False):
+    """Get image ROI (selected area)
+
+    Mode 0: Select & output, 1: Apply & output"""
     global selected_points  # Use global selection variables
     prompt = settings.prompts['crop']
     roi = in_roi
@@ -762,8 +766,8 @@ def get_roi(in_img, mode=0, in_roi=(0, 0, 0, 0), show_format=False):
             out_roi, key_pressed)
 
 
-# Crop image to safety margins
 def get_safe_area(in_img):
+    """Crop image to safety margins"""
     return (in_img[0][round(in_img[0].shape[0] * settings.ref_margins[1]):
                       round(in_img[0].shape[0] * (1 - settings.ref_margins[1])),
             round(in_img[0].shape[1] * settings.ref_margins[0]):
@@ -771,13 +775,13 @@ def get_safe_area(in_img):
             in_img[1])
 
 
-# Get image average color
-def get_average_color(in_img):  # Return average color of image
+def get_average_color(in_img):
+    """Get image average color"""
     return np.average(np.average(in_img[0], axis=0), axis=0)
 
 
-# Mode -2: polar->relative, -1: relative->corner, 1: corner->relative, 2: relative->polar
 def cvt_point(in_coords, mode, img_shape=(-1, -1, -1)):
+    """Mode -2: polar->relative, -1: relative->corner, 1: corner->relative, 2: relative->polar"""
     if mode == -2:
         # Coordinate format: (radius, degrees) -> (x, y)
         out_coords = (math.cos(math.radians(in_coords[1])) * in_coords[0],
@@ -798,8 +802,8 @@ def cvt_point(in_coords, mode, img_shape=(-1, -1, -1)):
     return out_coords
 
 
-# Check if capture settings match
 def compare_settings(img_metadata, ref_metadata):
+    """Check if capture settings match"""
     # List of capture settings to consider
     settings_list = ['EXIF:Make', 'EXIF:Model', 'EXIF:FNumber', 'EXIF:ExposureTime', 'EXIF:ISO', 'EXIF:FocalLength']
     for setting in settings_list:  # Loop through settings
@@ -810,8 +814,8 @@ def compare_settings(img_metadata, ref_metadata):
     return True  # Capture settings match
 
 
-# Perform function in parallel threads
 def parallel_process(function, in_img, params, operations=settings.cpu_threads):
+    """Perform function in parallel threads"""
     if type(params[-1]) is int and 0 <= params[-1]:
         operations = params[-1]
     split_img = np.array_split(in_img[0], operations)  # Split image for threads

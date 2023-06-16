@@ -12,8 +12,8 @@ from matplotlib import pyplot as plt
 plt.rcParams["figure.dpi"] = 200
 
 
-# Using reference grid for calibration
 def color_calibration(in_img, ref_data, show_img=False):
+    """Create 3D LUT from input image and reference data"""
     rec = image_manipulation.convert_color(in_img, 'show')
 
     # Base for color plot
@@ -147,8 +147,8 @@ def color_calibration(in_img, ref_data, show_img=False):
     return correction_lut, fit_data, sample_data
 
 
-# Calculate image color uniformity
 def image_uniformity(in_img):
+    """Calculate image color uniformity"""
     image_utilities.show_image("Selected area", image_manipulation.scale_image(in_img)[0])
 
     # Calculate average color

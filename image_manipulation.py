@@ -12,10 +12,10 @@ import colour
 set_all = False  # Set rest of ref. points based on current selection?
 
 
-# Conversion: 'in': BGR(input)->LAB(D50) 'out': LAB(D50)->BGR(output) 'show': LAB(D50)->BGR(0-255 8bit sRGB)
-#             'adapt': LAB->LAB(D50) 'LAB': LAB(D50)->LAB(output) 'RGB': LAB(D50)->RGB(0.0-1.0 sRGB) 'xy': LAB(D50)->xy
-#             'gray-adapt': Adapt LAB based on ref. grays
 def convert_color(in_cols, conversion, is_thread=False, operations=1, gray_refs=((0, 0, 0), None)):
+    """Conversion: 'in': BGR(input)->LAB(D50), 'out': LAB(D50)->BGR(output), 'show': LAB(D50)->BGR(0-255 8bit sRGB),
+    'adapt': LAB->LAB(D50), 'LAB': LAB(D50)->LAB(output), 'RGB': LAB(D50)->RGB(0.0-1.0 sRGB), 'xy': LAB(D50)->xy,
+    'gray-adapt': Adapt LAB based on ref. grays"""
     # If already thread or no need for threading, directly compute
     if is_thread or settings.cpu_threads == 0 or max(in_cols[0].shape) < settings.cpu_threads:
         # Split data based on memory usage
@@ -163,8 +163,8 @@ def convert_color(in_cols, conversion, is_thread=False, operations=1, gray_refs=
         return out_cols
 
 
-# Correct image with LUT
 def adjust_color(in_img, in_lut, is_thread=False, gray_refs=((0, 0, 0), None), operations=1):
+    """Correct image with LUT"""
     if is_thread or settings.cpu_threads == 0 or max(in_img[0].shape) < settings.cpu_threads:
         # Split image by memory usage
         if len(in_img[0].shape) > 1:
@@ -204,8 +204,8 @@ def adjust_color(in_img, in_lut, is_thread=False, gray_refs=((0, 0, 0), None), o
         return out_img
 
 
-# Crop sample images
 def crop_samples(sample_name, adjust=False, ref_gray=False, crop_settings=None):
+    """Crop sample images"""
     global set_all
 
     if adjust:
@@ -395,8 +395,8 @@ def crop_samples(sample_name, adjust=False, ref_gray=False, crop_settings=None):
         return new_crop_settings
 
 
-# Mode 0: Crop first image, 1: Match crop
 def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), convert=True, first=False):
+    """Mode 0: Crop first image, 1: Match crop"""
     if convert:
         # Convert to sRGB 8bit
         in_img = convert_color(in_img, 'show')
@@ -565,17 +565,11 @@ def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), 
         return None
 
 
-# Crop calibration target with corner reference points
 def crop_target(in_img, template, ref_grid):
+    """Crop calibration target with corner reference points"""
     template = convert_color(template, 'show')  # Convert template to sRGB 8bit
-    start_points = ((0, 0), (template[0].shape[1], template[0].shape[0]))
-    img_refs = []
-    for i in range(2):
-        # Show reference selection
-        img_ref = zoom_image(template, 4, start_points[i])
-        img_refs.append(img_ref[0])
 
-    image_utilities.show_image("Reference points", scale_image((np.concatenate(img_refs), template[1]))[0], False)
+    image_utilities.show_image("Reference points", scale_image(template)[0], False)
     ref_points = match_crop(in_img, 1)
     cv.destroyWindow("Reference points")
     angle = utilities.get_angle(ref_points[0], ref_points[1]) - ref_grid[2]
@@ -593,14 +587,14 @@ def crop_target(in_img, template, ref_grid):
     return out_img
 
 
-# Offset image by given (x, y) values
 def translate_image(in_img, offset):
+    """Offset image by given (x, y) values"""
     translate_matrix = np.float32([[1, 0, offset[0]], [0, 1, -offset[1]]])
     return cv.warpAffine(in_img[0].copy(), translate_matrix, (in_img[0].shape[1], in_img[0].shape[0])), in_img[1]
 
 
-# Scale image by multiplier, or to max window size if left empty
 def scale_image(in_img, size_multiplier=-1.0):
+    """Scale image by multiplier, or to max window size if left empty"""
     img_s = (in_img[0].copy(), in_img[1])  # Don't edit original image
     if size_multiplier == -1.0:
         # Calculate maximum size multiplier
@@ -613,8 +607,8 @@ def scale_image(in_img, size_multiplier=-1.0):
     return img_scaled, img_scale
 
 
-# Zoom the image to specified point by given zooming factor
 def zoom_image(in_img, zoom_factor=settings.selection_zoom, zoom_point=(-1, -1)):
+    """Zoom the image to specified point by given zooming factor"""
     if zoom_point != (-1, -1):
         # Zoom to given point without showing areas outside image frame
         offset = np.divide((in_img[0].shape[1] / 2 - zoom_point[0], zoom_point[1] - in_img[0].shape[0] / 2),
@@ -633,8 +627,8 @@ def zoom_image(in_img, zoom_factor=settings.selection_zoom, zoom_point=(-1, -1))
     return out_img
 
 
-# Draw transparent arrow on image
 def draw_arrow(in_img, coords, arrow_width):
+    """Draw transparent arrow on image"""
     line_layer = in_img[0].copy()
     cv.arrowedLine(line_layer, coords[0], coords[1],
                    (0, 0, main_script.max_val[in_img[1][0][1]] / 2), arrow_width,
@@ -642,8 +636,8 @@ def draw_arrow(in_img, coords, arrow_width):
     return cv.addWeighted(line_layer, settings.arrow_alpha, in_img[0], 1 - settings.arrow_alpha, 0), in_img[1]
 
 
-# Rotate image by given angle (in mathematically positive direction = counter-clockwise)
 def rotate_image(in_img, rot_angle):
+    """Rotate image by given angle (in mathematically positive direction = counter-clockwise)"""
     image_center = tuple(np.array(in_img[0].shape[1::-1]) / 2)
     rot_mat = cv.getRotationMatrix2D(image_center, rot_angle, 1.0)
 
@@ -653,8 +647,8 @@ def rotate_image(in_img, rot_angle):
     return img_rot
 
 
-# Get given range of image
 def get_image_range(in_img, in_range):  # in_range format (corner): ((left x, right x), (top y, bottom y))
+    """Get given range of image"""
     in_range = ([round(r_pos) for r_pos in in_range[0]], [round(r_pos) for r_pos in in_range[1]])
 
     # Calculate amount of overflow

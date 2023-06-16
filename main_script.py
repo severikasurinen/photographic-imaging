@@ -373,19 +373,30 @@ def main():
                 else:
                     print("Invalid reference.")
 
+            calib_files = []
             while True:
                 # Prompt for focus height of calibration image
                 focus_height = input("Height - focus height (mm): ")
                 if focus_height is not None:
                     focus_height = focus_height.strip()
-                img = image_utilities.read_image('calib-' + ref_name + '_' + focus_height + '.'
-                                                 + settings.input_extension,
-                                                 r'Calibration\Calibration Images')
 
-                if img is not None:
-                    break
-                else:
+                for file_name in utilities.get_files(r'Calibration\Calibration Images',
+                                                     match_extension=settings.input_extension):
+                    if file_name.split('_')[0] == 'calib-' + ref_name and file_name.split('_')[1] == focus_height:
+                        calib_files.append(file_name)
+                    elif file_name == 'calib-' + ref_name + '_' + focus_height + '.' + settings.input_extension:
+                        calib_files.append(file_name)
+                        break
+
+                if len(calib_files) == 0:
                     print("Calibration image not found.")
+                else:
+                    break
+
+            if settings.prompt_margin_utilization and not utilities.yes_no_prompt("Use safety margins?"):
+                use_margins = False
+            else:
+                use_margins = True
 
             start_time = time.perf_counter()
 
@@ -398,7 +409,7 @@ def main():
                 utilities.print_color("Warning: Ref. gray not found!", 'warning')
                 print()
             else:
-                if not settings.prompt_margin_utilization or utilities.yes_no_prompt("Use safety margins?"):
+                if use_margins:
                     gray_img = image_utilities.get_safe_area(gray_img)  # Crop to safety margins
                 ref_crop = image_manipulation.match_crop(gray_img, 0)  # Prompt for crop
                 lt_corner = image_utilities.cvt_point(ref_crop[1][0], -1, gray_img[0].shape)  # Upper left corner
@@ -409,11 +420,14 @@ def main():
                                                            abs(ref_crop[1][1][0] - ref_crop[1][0][0]),
                                                            abs(ref_crop[1][1][1] - ref_crop[1][0][1])))[0]
 
-            image_utilities.show_image("Loaded image", image_manipulation.scale_image(img)[0])  # Show original
+            for calib_file in calib_files:
+                img = image_utilities.read_image(calib_file, r'Calibration\Calibration Images')
 
-            # Crop color target
-            target_c = image_manipulation.crop_target(img, image_utilities.read_image(
-                ref_name + '.jpg', r'Calibration\Reference Values'), ref_data[0][0])
+                #image_utilities.show_image("Loaded image", image_manipulation.scale_image(img)[0])  # Show original
+
+                # Crop color target
+                target_c = image_manipulation.crop_target(img, image_utilities.read_image(
+                    ref_name + '.jpg', 'Reference Values', absolute_path=True), ref_data[0][0])
 
             correction_lut = calibration.color_calibration(target_c, ref_data)[0]  # Create 3D LUT
 

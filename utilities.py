@@ -35,16 +35,16 @@ def get_files(sub_path, match_extension=None):
                 if len(str(file_name).split('.')) > 1 and str(file_name).split('.')[1] == match_extension]
 
 
-# Colored print to console
 def print_color(in_str, in_col):
+    """Colored print to console"""
     if settings.use_colored_printing:
         print(settings.print_colors[in_col] + in_str + settings.print_colors['end'])
     else:
         print(in_str)
 
 
-# Write data to .csv file
 def write_csv(in_data, in_name, sub_path):
+    """Write data to .csv file"""
     csv_path = os.path.join(settings.main_directory, sub_path)
     if not os.path.exists(csv_path):
         os.makedirs(csv_path)
@@ -59,8 +59,8 @@ def write_csv(in_data, in_name, sub_path):
         writer.writerows(in_data)
 
 
-# Read data from .csv file
 def read_csv(in_name, sub_path):
+    """Read data from .csv file"""
     csv_path = os.path.join(settings.main_directory, sub_path)
     if not os.path.exists(os.path.join(csv_path, in_name + '.csv')):
         return None
@@ -97,8 +97,8 @@ def read_csv(in_name, sub_path):
     return headers, out_data
 
 
-# Compute 3D LUT from reference data
 def create_lut(in_lab, in_res, in_domain):
+    """Compute 3D LUT from reference data"""
     edges = []
     # Create grid of points for LUT
     for i in range(3):
@@ -123,8 +123,8 @@ def create_lut(in_lab, in_res, in_domain):
     return out_lut
 
 
-# Get angle between 2 points
 def get_angle(start_point, end_point, radians=False, clamp=False):
+    """Get angle between 2 points"""
     # Get angle in range [-180, 180]
     angle = math.degrees(math.atan2((end_point[1] - start_point[1]), end_point[0] - start_point[0]))
 
@@ -138,16 +138,16 @@ def get_angle(start_point, end_point, radians=False, clamp=False):
         return angle
 
 
-# Get dict key by value
 def get_key(in_val, in_dict):
+    """Get dict key by value"""
     for key in in_dict.keys():
         if in_val == in_dict[key]:
             return key
     return None
 
 
-# Multithreaded calculations
 def parallel_operation(in_array, const, operation=0, is_thread=False):  # operation - 0: sum, 1: multiply, 2: power
+    """Multithreaded calculations"""
     if is_thread or settings.cpu_threads == 0:
         if operation == 0:
             return in_array + const
@@ -165,8 +165,8 @@ def parallel_operation(in_array, const, operation=0, is_thread=False):  # operat
         return np.concatenate(out_array)    # Combine split data
 
 
-# Print rough operation time estimate
 def print_estimate(start_time, progress):
+    """Print rough operation time estimate"""
     est_time = round((time.perf_counter() - start_time) * (1 / progress - 1))
     if est_time > 5:
         print()
@@ -177,8 +177,8 @@ def print_estimate(start_time, progress):
         print()
 
 
-# Wait for Y/N answer
 def yes_no_prompt(prompt):
+    """Wait for Y/N answer"""
     while True:
         cur_input = input(f"{prompt} (Y/N): ")
         if cur_input is not None:
