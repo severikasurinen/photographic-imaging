@@ -285,6 +285,7 @@ def crop_samples(sample_name, adjust=False, ref_gray=False, crop_settings=None):
     img_refs = []
     write_dict = {}
     img_c = None
+    new_crop_settings = [None, None]
     for i in range(len(file_names)):
         # Check if crop data exists
         crop_exists = os.path.exists(os.path.join(rf'{os.path.join(settings.main_directory, path)}\Cropped',
@@ -330,23 +331,11 @@ def crop_samples(sample_name, adjust=False, ref_gray=False, crop_settings=None):
 
             ref_point_list.append((file_names[i].split('.')[0], ref_points))  # Save ref. points
 
-            # Calculate angle and scale based on ref. points
-            ref_angle = (utilities.get_angle(start_points[0], start_points[1])
-                         - utilities.get_angle(ref_points[0], ref_points[1]))
-            ref_scale = math.dist(start_points[0], start_points[1]) / math.dist(ref_points[0], ref_points[1])
-
-            ref_translate = (0, 0)
-            for o in range(2):
-                # Convert to polar coordinates for applying calculated angle and scale
-                ref_polar = image_utilities.cvt_point(ref_points[o], 2)
-                new_ref = image_utilities.cvt_point((ref_polar[0] * ref_scale, ref_polar[1] + ref_angle), -2)
-                ref_translate = np.sum((ref_translate, np.subtract(start_points[o], new_ref)), axis=0)
-
-            ref_translate = np.divide(ref_translate, 2)  # Get average translation
+            ref_angle, ref_scale, ref_translation = image_utilities.get_transformation(start_points, ref_points)
 
             # Apply rotation, scaling, translation
             img = translate_image(scale_image(rotate_image(img, ref_angle), ref_scale)[0],
-                                  ref_translate)
+                                  ref_translation)
         else:  # No need to save cropping data for ref. grays
             if len(ref_point_list) == 0:
                 ref_point_list.append([file_names[i].split('.')[0]])  # Save ref. gray names
@@ -359,7 +348,6 @@ def crop_samples(sample_name, adjust=False, ref_gray=False, crop_settings=None):
                 ref_crop = match_crop(img, 0, convert=False)
 
         if crop_settings is None:
-            new_crop_settings = [None, None]
             new_crop_settings[0] = ref_crop[0]
             img_c = rotate_image(img, new_crop_settings[0])  # Apply crop rotation
 
@@ -395,7 +383,8 @@ def crop_samples(sample_name, adjust=False, ref_gray=False, crop_settings=None):
         return new_crop_settings
 
 
-def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), convert=True, first=False):
+def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), convert=True, first=False,
+               force_prompt=None, close_window=True):
     """Mode 0: Crop first image, 1: Match crop"""
     if convert:
         # Convert to sRGB 8bit
@@ -516,10 +505,13 @@ def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), 
         # Select reference points
         global set_all
 
-        if first:
-            prompt = settings.prompts['ref-timelapse']
+        if force_prompt is None:
+            if first:
+                prompt = settings.prompts['ref-timelapse']
+            else:
+                prompt = settings.prompts['ref']
         else:
-            prompt = settings.prompts['ref']
+            prompt = force_prompt
         key_pressed = None
 
         # Only accept reference with both selection points
@@ -538,7 +530,8 @@ def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), 
             elif key_pressed == 'space':
                 # Use defaults
                 break
-        cv.destroyWindow(prompt)
+        if close_window:
+            cv.destroyWindow(prompt)
 
         if key_pressed == 'space':
             # Default reference to corners
@@ -565,26 +558,29 @@ def match_crop(in_img, mode=1, ref_points=(((0, 0), (0, 0)), ((0, 0), (0, 0))), 
         return None
 
 
-def crop_target(in_img, template, ref_grid):
-    """Crop calibration target with corner reference points"""
-    template = convert_color(template, 'show')  # Convert template to sRGB 8bit
+def crop_target(in_img, template):
+    """Crop calibration target using reference points"""
 
-    image_utilities.show_image("Reference points", scale_image(template)[0], False)
-    ref_points = match_crop(in_img, 1)
-    cv.destroyWindow("Reference points")
-    angle = utilities.get_angle(ref_points[0], ref_points[1]) - ref_grid[2]
-    new_ref = []
-    for i in range(2):
-        # Convert to corner coordinates
-        ref_polar = image_utilities.cvt_point(ref_points[i], 2)
-        new_ref.append(image_utilities.cvt_point(image_utilities.cvt_point((ref_polar[0], ref_polar[1] - angle), -2),
-                                                 -1, in_img[0].shape))
+    ref_points = match_crop(in_img, 1, force_prompt=settings.prompts['ref'] + ' ', close_window=False)
 
-    # Apply rotation and crop
-    out_img = get_image_range(rotate_image(in_img, -angle), ((new_ref[0][0], new_ref[1][0]),
-                                                             (new_ref[0][1], new_ref[1][1])))
+    template_ref_points = match_crop(template, 1)
 
-    return out_img
+    cv.destroyAllWindows()  # Close both windows
+
+    ref_angle, ref_scale = image_utilities.get_transformation(template_ref_points, ref_points)[:2]
+
+    # Convert to polar coordinates for applying calculated angle and scale
+    ref_polar = image_utilities.cvt_point(ref_points[0], 2)
+    new_ref = image_utilities.cvt_point((ref_polar[0] * ref_scale, ref_polar[1] + ref_angle), -2)
+    # Apply rotation and scaling
+    out_img = scale_image(rotate_image(in_img, ref_angle, interpolate=False), ref_scale)[0]
+
+    overlay_offset = (round(template[0].shape[1] / 2 + template_ref_points[0][0]
+                            - (out_img[0].shape[1] / 2 + new_ref[0])),
+                      round(template[0].shape[0] / 2 - template_ref_points[0][1]
+                            - (out_img[0].shape[0] / 2 - new_ref[1])))
+
+    return out_img, overlay_offset
 
 
 def translate_image(in_img, offset):
@@ -602,7 +598,7 @@ def scale_image(in_img, size_multiplier=-1.0):
                         settings.max_window[1] / img_s[0].shape[0])
     else:
         img_scale = size_multiplier
-    img_scaled = (cv.resize(img_s[0], None, fx=img_scale, fy=img_scale, interpolation=cv.INTER_AREA), img_s[1])
+    img_scaled = (cv.resize(img_s[0], None, fx=img_scale, fy=img_scale, interpolation=cv.INTER_NEAREST), img_s[1])
 
     return img_scaled, img_scale
 
@@ -636,13 +632,17 @@ def draw_arrow(in_img, coords, arrow_width):
     return cv.addWeighted(line_layer, settings.arrow_alpha, in_img[0], 1 - settings.arrow_alpha, 0), in_img[1]
 
 
-def rotate_image(in_img, rot_angle):
+def rotate_image(in_img, rot_angle, interpolate=True):
     """Rotate image by given angle (in mathematically positive direction = counter-clockwise)"""
     image_center = tuple(np.array(in_img[0].shape[1::-1]) / 2)
     rot_mat = cv.getRotationMatrix2D(image_center, rot_angle, 1.0)
 
+    if interpolate:
+        interpolation = cv.INTER_CUBIC
+    else:
+        interpolation = cv.INTER_NEAREST
     # Apply rotation to copy of given image
-    img_rot = (cv.warpAffine(in_img[0].copy(), rot_mat, in_img[0].shape[1::-1], flags=cv.INTER_LINEAR), in_img[1])
+    img_rot = (cv.warpAffine(in_img[0].copy(), rot_mat, in_img[0].shape[1::-1], flags=interpolation), in_img[1])
 
     return img_rot
 

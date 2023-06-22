@@ -6,6 +6,7 @@ import calibration
 
 import os
 import time
+import numpy as np
 import cv2 as cv  # Import OpenCV library
 import colour  # Import Colour Science library
 
@@ -23,24 +24,12 @@ def main():
     end_time = 0
 
     # Start in main menu
-    while True:
-        script_mode = input("Script mode (0: Apply corrections, 1: Rename carousel timelapse files, 2: Crop images, "
-                            "3: Measure series color, 4: Calibrate, ENTER: Exit): ")
-        if script_mode is not None:
-            script_mode = script_mode.strip()
-        if script_mode == '':
-            print("Closing program.")
-            return
-
-        try:
-            script_mode = int(script_mode)
-            if 0 <= script_mode <= 4:
-                break
-            else:
-                print("Invalid mode.")
-
-        except ValueError:
-            print("Invalid input.")
+    script_mode = utilities.int_prompt("Script mode (0: Apply corrections, 1: Rename carousel timelapse files"
+                                       ", 2: Crop images, 3: Measure series color, 4: Calibrate, ENTER: Exit): ",
+                                       (0, 4))
+    if script_mode is None:
+        print("Closing program.")
+        return
 
     if script_mode == 0:  # Apply corrections
         while True:
@@ -219,31 +208,23 @@ def main():
         end_time = time.perf_counter()
 
     elif script_mode == 1:  # Rename carousel timelapse files
-        while True:
+        sample_name = None
+        sample_found = False
+        while not sample_found:
             # Prompt for sample name
-            sample_name = input("File name of any sample in timelapse (with file extension): ")
-            if sample_name.strip() != '' and os.path.exists(os.path.join(settings.main_directory,
-                                                                         rf"Exported Images\{sample_name}")):
-                break
-            else:
+            sample_name = input("Name of any sample in timelapse: ")
+            if sample_name.strip() != '':
+                for file_name in utilities.get_files("Exported Images", match_extension=settings.input_extension):
+                    if file_name.split('_')[0] == sample_name.split('_')[0]:
+                        sample_found = True
+                        break
+            if not sample_found:
                 print("Invalid sample.")
+
         print()
-
-        while True:
-            cells = input("Number of cells in timelapse: ")
-            if cells is not None:
-                cells = cells.strip()
-
-            try:
-                cells = int(cells)
-                if 0 <= cells <= 8:
-                    break
-                else:
-                    print("Invalid number.")
-
-            except ValueError:
-                print("Invalid input.")
-        print()
+        cells = None
+        while cells is None:
+            cells = utilities.int_prompt("Number of cells in timelapse: ", (0, 8))
         start_time = time.perf_counter()
 
         cell_i = 1
@@ -264,7 +245,7 @@ def main():
     elif script_mode == 2:  # Crop images
         while True:
             # Prompt for sample name
-            sample_name = input("File name of sample (with file extension): ")
+            sample_name = input("Name of series or sample: ")
             if len(sample_name.split('_')[0].split('-')) > 1:
                 path = rf"Corrected Images\{sample_name.split('_')[0].split('-')[0]}\{sample_name}"
             else:
@@ -283,33 +264,21 @@ def main():
         end_time = time.perf_counter()
 
     elif script_mode == 3:  # Measure series color
-        while True:
-            # Prompt for measurement type
-            measure_mode = input("Measuring mode (0: Measure area, 1: Measure along line, ENTER: Main menu): ")
-            if measure_mode is not None:
-                measure_mode = measure_mode.strip()
-            if measure_mode == '':
-                # Return to main menu
-                main()
-                return
-
-            measure_mode = int(measure_mode)
-            if 0 <= measure_mode <= 1:
-                break
-            else:
-                print("Invalid mode.")
+        measure_mode = utilities.int_prompt("Measuring mode (0: Measure area, 1: Measure along line"
+                                            ", ENTER: Main menu): ", (0, 1))
+        if measure_mode is None:
+            main()  # Return to main menu
+            return
 
         while True:
             # Prompt for sample name
-            img_name = input("File name of sample (with file extension): ")
+            img_name = input("Name of sample: ")
             if len(img_name.split('_')[0].split('-')) > 1:
                 path = rf"Corrected Images\{img_name.split('_')[0].split('-')[0]}\{img_name}"
             else:
                 path = rf"Corrected Images\{img_name.split('_')[0]}"
             if img_name.strip() != '' and os.path.exists(os.path.join(settings.main_directory, path + r"\Cropped")):
                 path = path + r"\Cropped"
-                break
-            elif img_name.strip() != '' and os.path.exists(os.path.join(settings.main_directory, path)):
                 break
             else:
                 print("Invalid sample.")
@@ -341,23 +310,13 @@ def main():
         end_time = time.perf_counter()
 
     elif script_mode == 4:  # Calibration
-        while True:
-            calib_mode = input("Measuring mode (0: Create calibration profile, 1: Measure image uniformity"
-                               ", ENTER: Main menu): ")
-            if calib_mode is not None:
-                calib_mode = calib_mode.strip()
-            if calib_mode == '':
-                main()  # Return to main menu
-                return
-
-            calib_mode = int(calib_mode)
-            if 0 <= calib_mode <= 1:
-                break
-            else:
-                print("Invalid mode.")
+        calib_mode = utilities.int_prompt("Measuring mode (0: Create calibration profile, 1: Measure image uniformity"
+                                          ", ENTER: Main menu): ", (0, 1))
+        if calib_mode is None:
+            main()  # Return to main menu
+            return
 
         if calib_mode == 0:  # Create calibration profile
-            # TODO: Automated target image combining
             while True:
                 # Prompt for color target type
                 ref_name = settings.reference_types[0]
@@ -385,7 +344,7 @@ def main():
                     if file_name.split('_')[0] == 'calib-' + ref_name and file_name.split('_')[1] == focus_height:
                         calib_files.append(file_name)
                     elif file_name == 'calib-' + ref_name + '_' + focus_height + '.' + settings.input_extension:
-                        calib_files.append(file_name)
+                        calib_files = [file_name]
                         break
 
                 if len(calib_files) == 0:
@@ -420,23 +379,39 @@ def main():
                                                            abs(ref_crop[1][1][0] - ref_crop[1][0][0]),
                                                            abs(ref_crop[1][1][1] - ref_crop[1][0][1])))[0]
 
+            calib_image_data = image_utilities.read_image(calib_files[0], r'Calibration\Calibration Images')[1]
+            target_template = image_utilities.read_image(ref_name + '.jpg', 'Reference Values', absolute_path=True)
+            target_c = (np.zeros((target_template[0].shape[0], target_template[0].shape[1], 3)), calib_image_data)
+
+            img = None
             for calib_file in calib_files:
                 img = image_utilities.read_image(calib_file, r'Calibration\Calibration Images')
-
-                #image_utilities.show_image("Loaded image", image_manipulation.scale_image(img)[0])  # Show original
+                if use_margins:
+                    img = image_utilities.get_safe_area(img)  # Crop to safety margins
 
                 # Crop color target
-                target_c = image_manipulation.crop_target(img, image_utilities.read_image(
-                    ref_name + '.jpg', 'Reference Values', absolute_path=True), ref_data[0][0])
+                img_overlay, offset = image_manipulation.crop_target(img, target_template)
+                lu_corner_crop = (-min(0, offset[0]), -min(0, offset[1]))
+                offset = np.sum([offset, lu_corner_crop], axis=0)
+                img_overlay = (img_overlay[0][lu_corner_crop[1]:][lu_corner_crop[0]:], img_overlay[1])
+                rd_corner_crop = (max(0, (offset[0] + img_overlay[0].shape[1]) - target_c[0].shape[1]),
+                                  max(0, (offset[1] + img_overlay[0].shape[0]) - target_c[0].shape[0]))
+                img_overlay = (img_overlay[0][:-(rd_corner_crop[1] + 1), :-(rd_corner_crop[0] + 1)], img_overlay[1])
+
+                layers = np.stack((target_c[0][offset[1]:offset[1] + img_overlay[0].shape[0],
+                                   offset[0]:offset[0] + img_overlay[0].shape[1]], img_overlay[0]), axis=-1)
+
+                target_c[0][offset[1]:offset[1] + img_overlay[0].shape[0],
+                            offset[0]:offset[0] + img_overlay[0].shape[1]] = np.ma.average(layers, axis=-1,
+                                                                                           weights=layers.astype(bool)
+                                                                                           ).filled(0)
 
             correction_lut = calibration.color_calibration(target_c, ref_data)[0]  # Create 3D LUT
 
-            print()
             target_a = image_manipulation.adjust_color(target_c, correction_lut)  # Correct color target
 
             # Show corrected color target and get accuracy
             fit_data, sample_data = calibration.color_calibration(target_a, ref_data, True)[1:3]
-            print()
 
             # Get ref. gray LAB values
             gray_lab = (0, 0, 0)

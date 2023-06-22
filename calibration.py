@@ -98,7 +98,8 @@ def color_calibration(in_img, ref_data, show_img=False):
 
     if show_img:
         # Show corrected color target
-        image_utilities.show_image("Corrected target", image_manipulation.scale_image(rec)[0], False)
+        image_utilities.show_image("Corrected target (Press Esc to discard, or any other key to save)",
+                                   image_manipulation.scale_image(rec)[0], False)
     else:
         s_time = time.perf_counter()
 
@@ -144,6 +145,7 @@ def color_calibration(in_img, ref_data, show_img=False):
             ax.zaxis.labelpad = 0
             plt.show()
 
+    print()
     return correction_lut, fit_data, sample_data
 
 

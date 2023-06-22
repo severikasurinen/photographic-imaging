@@ -802,6 +802,24 @@ def cvt_point(in_coords, mode, img_shape=(-1, -1, -1)):
     return out_coords
 
 
+def get_transformation(original_points, new_points):
+    """Calculate angle, scale, and translation based on ref. points"""
+    ref_angle = (utilities.get_angle(original_points[0], original_points[1])
+                 - utilities.get_angle(new_points[0], new_points[1]))
+    ref_scale = math.dist(original_points[0], original_points[1]) / math.dist(new_points[0], new_points[1])
+
+    ref_translation = (0, 0)
+    for i in range(2):
+        # Convert to polar coordinates for applying calculated angle and scale
+        ref_polar = cvt_point(new_points[i], 2)
+        new_ref = cvt_point((ref_polar[0] * ref_scale, ref_polar[1] + ref_angle), -2)
+        ref_translation = np.sum((ref_translation, np.subtract(original_points[i], new_ref)), axis=0)
+
+    ref_translation = np.divide(ref_translation, 2)  # Get average translation
+
+    return ref_angle, ref_scale, ref_translation
+
+
 def compare_settings(img_metadata, ref_metadata):
     """Check if capture settings match"""
     # List of capture settings to consider

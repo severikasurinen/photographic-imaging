@@ -189,3 +189,23 @@ def yes_no_prompt(prompt):
                 return False
 
         print("Invalid input, only use Y/N.")
+
+
+def int_prompt(prompt, input_range):
+    while True:
+        input_value = input(prompt)
+        if input_value is not None:
+            input_value = input_value.strip()
+        if input_value == '':
+            print()
+            return None
+
+        try:
+            input_value = int(input_value)
+            if input_range[0] <= input_value <= input_range[1]:
+                print()
+                return input_value
+            else:
+                print("Value not in range.")
+        except ValueError:
+            print("Invalid input, only use numbers.")
