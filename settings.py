@@ -9,7 +9,7 @@ use_colored_printing = False    # Set to True if terminal used supports colored 
 prompt_focus_height = False     # Ask user to input focus height? (Not in use, requires new interpolation algorithm)
 check_capture_settings = False  # Check if images match calibration capture settings?
 save_gray_images = False        # Keep ref. gray images?
-gray_warning_limit = 1.5        # ref. gray min. dE for warning
+gray_warning_limit = 1.0        # ref. gray min. dE for warning
 
 input_extension = 'tif'         # Input file extension
 
