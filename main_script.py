@@ -212,7 +212,7 @@ def main():
         sample_found = False
         while not sample_found:
             # Prompt for sample name
-            sample_name = input("Name of any sample in timelapse: ")
+            sample_name = input("Name of series: ")
             if sample_name.strip() != '':
                 for file_name in utilities.get_files("Exported Images", match_extension=settings.input_extension):
                     if file_name.split('_')[0] == sample_name.split('_')[0]:
@@ -228,7 +228,7 @@ def main():
         start_time = time.perf_counter()
 
         cell_i = 1
-        measurement_i = 0
+        measurement_i = 1   # Start indexing from 1 to match Nova output
         for file_name in utilities.get_files("Exported Images", match_extension=settings.input_extension):
             if file_name.split('_')[0] == sample_name.split('_')[0]:
                 new_file_name = (file_name.split('-')[0] + '-' + str(cell_i) + '_' + str(measurement_i)
